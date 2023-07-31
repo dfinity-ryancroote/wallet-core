@@ -14,7 +14,8 @@
 namespace TW::InternetComputer {
 
 class Address {
-  public:
+public:
+    TW::Data bytes;
     // TODO: Complete class definition
 
     /// Determines whether a string makes a valid address.
