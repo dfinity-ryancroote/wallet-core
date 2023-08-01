@@ -37,6 +37,9 @@ impl From<CEncodingCode> for ErrorCode {
     }
 }
 
+/// Determines if a provided string is a valid ICP address.
+/// \param input *non-null* C-compatibile, nul-terminated string.
+/// \return a boolean
 #[no_mangle]
 pub unsafe extern "C" fn tw_internetcomputer_is_address_valid(address: *const c_char) -> bool {
     let Ok(address) = CStr::from_ptr(address).to_str() else {
@@ -50,6 +53,10 @@ pub unsafe extern "C" fn tw_internetcomputer_is_address_valid(address: *const c_
     validation::is_address_valid(address)
 }
 
+/// Encodes an expected secp256k1 extended public key to an Internet Computer principal.
+/// \param pubkey *non-null* byte array.
+/// \param pubkey_len the length of the `pubkey` byte array parameter.
+/// \return C-compatible result with a C-compatible byte array.
 #[no_mangle]
 pub unsafe extern "C" fn tw_internetcomputer_encode_public_key_to_principal(
     pubkey: *const u8,
@@ -65,6 +72,10 @@ pub unsafe extern "C" fn tw_internetcomputer_encode_public_key_to_principal(
         .into()
 }
 
+/// Encodes a principal byte array to an Internet Computer address.
+/// \param principal_bytes *non-null* byte array.
+/// \param principal_len the length of the `principal_bytes` array.
+/// \return *non-null* C-compatible, nul-terminated string.
 #[no_mangle]
 pub unsafe extern "C" fn tw_internetcomputer_principal_to_account_identifer(
     principal_bytes: *const u8,
@@ -77,6 +88,10 @@ pub unsafe extern "C" fn tw_internetcomputer_principal_to_account_identifer(
         .into_raw()
 }
 
+/// Encodes a principal byte array to an Internet Computer principal text.
+/// \param principal_bytes *non-null* byte array.
+/// \param principal_len the length of the `principal_bytes` array.
+/// \return *non-null* C-compatible, nul-terminated string.
 #[no_mangle]
 pub unsafe extern "C" fn tw_encode_textual_principal(
     principal_bytes: *const u8,
