@@ -1,0 +1,47 @@
+use candid::Principal;
+
+use crate::types::account_identifier::AccountIdentifier;
+
+#[derive(Debug, PartialEq)]
+pub enum EncodePrincipalError {
+    InvalidPublicKey,
+    FailedDerEncode,
+}
+
+const ALGORITHM_OID: pkcs8::ObjectIdentifier =
+    pkcs8::ObjectIdentifier::new_unwrap("1.2.840.10045.2.1");
+const OID: pkcs8::ObjectIdentifier = pkcs8::ObjectIdentifier::new_unwrap("1.3.132.0.10");
+
+fn encode_public_key_to_der(
+    public_key_bytes: &[u8],
+) -> Result<der::Document, EncodePrincipalError> {
+    let subject_public_key = der::asn1::BitStringRef::new(0, public_key_bytes)
+        .map_err(|_| EncodePrincipalError::FailedDerEncode)?;
+    pkcs8::SubjectPublicKeyInfo {
+        algorithm: pkcs8::spki::AlgorithmIdentifier {
+            oid: ALGORITHM_OID,
+            parameters: Some(OID),
+        },
+        subject_public_key,
+    }
+    .try_into()
+    .map_err(|_| EncodePrincipalError::FailedDerEncode)
+}
+
+pub fn encode_public_key_to_principal(
+    public_key_bytes: &[u8],
+) -> Result<Vec<u8>, EncodePrincipalError> {
+    let der_encoded_public_key = encode_public_key_to_der(public_key_bytes)?;
+    let principal = Principal::self_authenticating(der_encoded_public_key.as_bytes());
+    Ok(principal.as_slice().to_vec())
+}
+
+pub fn encode_textual_principal(principal_bytes: &[u8]) -> String {
+    Principal::from_slice(principal_bytes).to_text()
+}
+
+pub fn principal_to_account_identifier(principal_bytes: &[u8]) -> String {
+    let principal = Principal::from_slice(principal_bytes);
+    let account_id = AccountIdentifier::new(principal);
+    account_id.to_hex()
+}
