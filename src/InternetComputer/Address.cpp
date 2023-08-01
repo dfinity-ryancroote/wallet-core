@@ -5,7 +5,6 @@
 // file LICENSE at the root of the source code distribution tree.
 
 #include "Address.h"
-<<<<<<< HEAD
 #include "Base32.h"
 #include "Crc.h"
 #include "Hash.h"
@@ -14,13 +13,10 @@
 #include <iostream>
 #include <numeric>
 #include <string>
-=======
->>>>>>> b448388ddd93bcfcade8d82bc731c494ff02d4a4
 
 namespace TW::InternetComputer {
 
 bool Address::isValid(const std::string& string) {
-<<<<<<< HEAD
     return Rust::tw_internetcomputer_is_address_valid(string.c_str());
 }
 
@@ -44,27 +40,6 @@ Address::Address(const PublicKey& publicKey) {
 
 std::string Address::string() const {
     return str;
-=======
-    // TODO: Finalize implementation
-    return false;
-}
-
-Address::Address(const std::string& string) {
-    // TODO: Finalize implementation
-
-    if (!isValid(string)) {
-        throw std::invalid_argument("Invalid address string");
-    }
-}
-
-Address::Address(const PublicKey& publicKey) {
-    // TODO: Finalize implementation
-}
-
-std::string Address::string() const {
-    // TODO: Finalize implementation
-    return "TODO";
->>>>>>> b448388ddd93bcfcade8d82bc731c494ff02d4a4
 }
 
 } // namespace TW::InternetComputer
