@@ -15,8 +15,8 @@ class InternetComputerTests: XCTestCase {
 
         let key = PrivateKey(data: Data(hexString: "__PRIVATE_KEY_DATA__")!)!
         let pubkey = key.getPublicKeyEd25519()
-        let address = AnyAddress(publicKey: pubkey, coin: .internetcomputer)
-        let addressFromString = AnyAddress(string: "__ADDRESS_DATA__", coin: .internetcomputer)!
+        let address = AnyAddress(publicKey: pubkey, coin: .internetComputer)
+        let addressFromString = AnyAddress(string: "__ADDRESS_DATA__", coin: .internetComputer)!
 
         XCTAssertEqual(pubkey.data.hexString, "__EXPECTED_PUBKEY_DATA__")
         XCTAssertEqual(address.description, addressFromString.description)
