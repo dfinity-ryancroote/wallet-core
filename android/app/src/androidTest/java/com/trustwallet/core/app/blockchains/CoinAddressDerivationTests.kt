@@ -1,11 +1,13 @@
 package com.trustwallet.core.app.blockchains
 
+import com.trustwallet.core.app.utils.toHex
 import kotlinx.coroutines.*
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import wallet.core.jni.CoinType
 import wallet.core.jni.CoinType.*
 import wallet.core.jni.HDWallet
+import wallet.core.jni.PublicKeyType
 
 class CoinAddressDerivationTests {
 
@@ -23,6 +25,11 @@ class CoinAddressDerivationTests {
             CoinType.values().forEach { coin ->
                 val job = scope.async {
                     val privateKey = wallet.getKeyForCoin(coin)
+                    if (coin == CoinType.INTERNETCOMPUTER) {
+                        privateKey.
+                        println(coin.blockchain().name + ": " + coin.publicKeyType().name)
+                    }
+
                     val address = coin.deriveAddress(privateKey)
                     runDerivationChecks(coin, address)
                 }
@@ -145,6 +152,6 @@ class CoinAddressDerivationTests {
         AKASH -> assertEquals("akash142j9u5eaduzd7faumygud6ruhdwme98qal870f", address)
         NOBLE -> assertEquals("noble142j9u5eaduzd7faumygud6ruhdwme98qc8l3wa", address)
         ROOTSTOCK -> assertEquals("0xA2D7065F94F838a3aB9C04D67B312056846424Df", address)
-        INTERNETCOMPUTER -> assertEquals("", address)
+        INTERNETCOMPUTER -> assertEquals("b9a13d974ee9db036d5abc5b66ace23e513cb5676f3996626c7717c339a3ee87", address)
     }
 }
