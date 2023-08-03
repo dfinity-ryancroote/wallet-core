@@ -25,11 +25,6 @@ class CoinAddressDerivationTests {
             CoinType.values().forEach { coin ->
                 val job = scope.async {
                     val privateKey = wallet.getKeyForCoin(coin)
-                    if (coin == CoinType.INTERNETCOMPUTER) {
-                        privateKey.
-                        println(coin.blockchain().name + ": " + coin.publicKeyType().name)
-                    }
-
                     val address = coin.deriveAddress(privateKey)
                     runDerivationChecks(coin, address)
                 }
