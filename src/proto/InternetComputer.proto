@@ -9,23 +9,43 @@ syntax = "proto3";
 package TW.InternetComputer.Proto;
 option java_package = "wallet.core.jni.proto";
 
-// TODO: typical balance transfer, add more fields needed to sign
-message TransferMessage {
-    int64 amount = 1;
-    int64 fee = 2;
-    string to = 3;
+// Internet Computer Transactions
+message Transaction {
+
+    // Internet Computer Account
+    message Account {
+        string principal = 1;
+        bytes subaccount = 2;
+    }
+
+
+    // ICRC1 Ledger transfer arguments
+    message ICRC1_Transfer_Args {
+        bytes from_subaccount = 1;
+        Account to_account = 2;
+        uint64 amount = 3;
+        uint64 fee = 4;
+        uint64 memo = 5;
+        uint64 created_at_time = 6;
+    }
+
+    // Payload transfer
+    oneof transaction_oneof {
+        ICRC1_Transfer_Args icrc1_transfer_args = 1;
+    }
 }
 
 // TODO: Input data necessary to create a signed transaction.
 message SigningInput {
     bytes private_key = 1;
-
-    oneof message_oneof {
-        TransferMessage transfer = 2;
-    }
+    Transaction transaction = 2;
 }
 
 // Transaction signing output.
+// TODO: Add a field for request result (success or failure)
+// TODO: Add a field for original request message
+// TODO: Add a field for signature components
+// TODO: Add a field for error messages
 message SigningOutput {
     // Signed and encoded transaction bytes.
     bytes encoded = 1;
