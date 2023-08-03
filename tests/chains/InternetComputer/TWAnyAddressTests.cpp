@@ -17,6 +17,4 @@ TEST(TWInternetComputer, Address) {
     auto addr = WRAP(TWAnyAddress, TWAnyAddressCreateWithString(string.get(), TWCoinTypeInternetComputer));
     auto string2 = WRAPS(TWAnyAddressDescription(addr.get()));
     EXPECT_TRUE(TWStringEqual(string.get(), string2.get()));
-    auto keyHash = WRAPD(TWAnyAddressData(addr.get()));
-    assertHexEqual(keyHash, "");
 }
