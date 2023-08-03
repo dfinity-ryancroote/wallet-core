@@ -4,16 +4,11 @@
 // terms governing use, modification, and redistribution, is contained in the
 // file LICENSE at the root of the source code distribution tree.
 
-#include "HDWallet.h"
 #include "HexCoding.h"
 #include "InternetComputer/Address.h"
 #include "PrivateKey.h"
 #include "PublicKey.h"
 #include <gtest/gtest.h>
-#include <iostream>
-#include <memory>
-#include <string>
-#include <vector>
 
 namespace TW::InternetComputer::tests {
 
