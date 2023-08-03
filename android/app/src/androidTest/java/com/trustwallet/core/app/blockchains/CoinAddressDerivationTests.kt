@@ -1,13 +1,11 @@
 package com.trustwallet.core.app.blockchains
 
-import com.trustwallet.core.app.utils.toHex
 import kotlinx.coroutines.*
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import wallet.core.jni.CoinType
 import wallet.core.jni.CoinType.*
 import wallet.core.jni.HDWallet
-import wallet.core.jni.PublicKeyType
 
 class CoinAddressDerivationTests {
 
