@@ -8,3 +8,4 @@ pub mod encode;
 pub mod ffi;
 pub mod types;
 pub mod validation;
+pub mod crypto;
