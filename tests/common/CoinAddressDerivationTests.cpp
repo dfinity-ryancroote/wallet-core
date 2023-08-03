@@ -9,6 +9,7 @@
 
 #include <gtest/gtest.h>
 
+#include <iostream>
 #include <mutex>
 #include <thread>
 
@@ -368,7 +369,10 @@ TEST(Coin, DeriveAddress) {
             break;
         case TWCoinTypeRootstock:
             EXPECT_EQ(address, "0x9d8A62f656a8d1615C1294fd71e9CFb3E4855A4F");
-            break;    
+            break;
+        case TWCoinTypeInternetComputer:
+            EXPECT_EQ(address, "cb3aa6a0471a417fc33d8e71f1d241750dfa29b4dc8f084265ce1301fb03b65b");
+            break;
             // no default branch here, intentionally, to better notice any missing coins
         }
     }
