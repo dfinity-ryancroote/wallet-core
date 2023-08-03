@@ -17,8 +17,6 @@ public:
     bool validateAddress(TWCoinType coin, const std::string& address, const PrefixVariant& addressPrefix) const;
     std::string deriveAddress(TWCoinType coin, const PublicKey& publicKey, TWDerivation derivation, const PrefixVariant& addressPrefix) const;
     void sign(TWCoinType coin, const Data& dataIn, Data& dataOut) const;
-    // normalizeAddress(): implement this if needed, e.g. Ethereum address is EIP55 checksummed
-    // plan(): implement this if the blockchain is UTXO based
 
     void compile(TWCoinType coin, const Data& txInputData, const std::vector<Data>& signatures, const std::vector<PublicKey>& publicKeys, Data& dataOut) const;
 };
