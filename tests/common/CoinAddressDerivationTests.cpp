@@ -9,7 +9,6 @@
 
 #include <gtest/gtest.h>
 
-#include <iostream>
 #include <mutex>
 #include <thread>
 
