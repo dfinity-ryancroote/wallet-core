@@ -13,7 +13,7 @@ import com.trustwallet.core.app.utils.toHexBytes
 import com.trustwallet.core.app.utils.toHexBytesInByteString
 import org.junit.Assert.assertEquals
 import org.junit.Test
-import wallet.core.jni.InternetComputerSigner
+import wallet.core.jni.*
 import wallet.core.jni.proto.InternetComputer
 
 class TestInternetComputerSigner {

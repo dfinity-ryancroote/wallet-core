@@ -4,23 +4,17 @@
 // terms governing use, modification, and redistribution, is contained in the
 // file LICENSE at the root of the source code distribution tree.
 
-#include <TrustWalletCore/TWAnyAddress.h>
 #include "HexCoding.h"
+#include <TrustWalletCore/TWAnyAddress.h>
 
 #include "TestUtilities.h"
 #include <gtest/gtest.h>
 
 using namespace TW;
 
-// TODO: Finalize tests
-
 TEST(TWInternetComputer, Address) {
-    // TODO: Finalize test implementation
-
-    auto string = STRING("__ADD_VALID_ADDRESS_HERE__");
+    auto string = STRING("58b26ace22a36a0011608a130e84c7cf34ba469c38d24ccf606152ce7de91f4e");
     auto addr = WRAP(TWAnyAddress, TWAnyAddressCreateWithString(string.get(), TWCoinTypeInternetComputer));
     auto string2 = WRAPS(TWAnyAddressDescription(addr.get()));
     EXPECT_TRUE(TWStringEqual(string.get(), string2.get()));
-    auto keyHash = WRAPD(TWAnyAddressData(addr.get()));
-    assertHexEqual(keyHash, "__CORRESPONDING_ADDRESS_DATA__");
 }
