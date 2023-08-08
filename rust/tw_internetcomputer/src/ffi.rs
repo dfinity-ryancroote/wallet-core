@@ -13,7 +13,7 @@ use tw_memory::ffi::{
     c_result::ErrorCode,
 };
 
-use crate::{crypto, encode, validation};
+use crate::{sign_transfer, encode, validation};
 use crate::types::account_identifier::Subaccount;
 //use candid::types::TypeInner::Principal;
 use candid::Principal;
@@ -156,7 +156,7 @@ pub unsafe extern "C" fn tw_sign(
         None => Subaccount([0; 32])
     };
 
-    crypto::sign(
+    sign_transfer::sign(
         from_sub_account,
         to_principal,
         to_sub_account,

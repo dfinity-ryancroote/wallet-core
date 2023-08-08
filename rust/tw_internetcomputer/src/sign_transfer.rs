@@ -8,7 +8,7 @@ use ic_agent::{
     Agent,
     Identity,
     agent::UpdateBuilder,
-    identity::{AnonymousIdentity, BasicIdentity, Secp256k1Identity}
+    identity::{AnonymousIdentity, BasicIdentity, Secp256k1Identity},
 };
 use std::time::Duration;
 
