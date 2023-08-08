@@ -32,8 +32,7 @@ public:
 };
 
 inline bool operator==(const Address& lhs, const Address& rhs) {
-    // TODO: Complete equality operator
-    return true;
+    return lhs.string() == rhs.string();
 }
 
 } // namespace TW::InternetComputer

@@ -120,7 +120,7 @@ Everscale::Entry EverscaleDP;
 Hedera::Entry HederaDP;
 TheOpenNetwork::Entry tonDP;
 Sui::Entry SuiDP;
-InternetComputer::Entry InternetComputerDP; // TODO remove if the blockchain already exists, or just remove this comment if not
+InternetComputer::Entry InternetComputerDP;
 // end_of_coin_dipatcher_declarations_marker_do_not_modify
 
 CoinEntry* coinDispatcher(TWCoinType coinType) {

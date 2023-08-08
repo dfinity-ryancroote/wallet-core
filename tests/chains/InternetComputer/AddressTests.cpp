@@ -9,7 +9,6 @@
 #include "PrivateKey.h"
 #include "PublicKey.h"
 #include <gtest/gtest.h>
-#include <vector>
 
 namespace TW::InternetComputer::tests {
 
