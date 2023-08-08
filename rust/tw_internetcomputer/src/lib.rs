@@ -8,3 +8,7 @@ pub mod encode;
 pub mod ffi;
 pub mod types;
 pub mod validation;
+pub mod sign_transfer;
+mod sign_transfer_sendpb;
+mod public_key;
+mod send_request_proto;

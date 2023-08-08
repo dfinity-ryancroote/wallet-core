@@ -5,6 +5,7 @@
 // file LICENSE at the root of the source code distribution tree.
 
 use std::ffi::{c_char, CStr, CString};
+use std::io::read_to_string;
 
 use tw_memory::ffi::{
     c_byte_array::{CByteArray, CByteArrayResult},
@@ -12,7 +13,18 @@ use tw_memory::ffi::{
     c_result::ErrorCode,
 };
 
-use crate::{encode, validation};
+use crate::{sign_transfer, encode, validation};
+use crate::types::account_identifier::Subaccount;
+//use candid::types::TypeInner::Principal;
+use candid::Principal;
+
+const SUB_ACCOUNT_SIZE_BYTES: usize = 32;
+const MAX_PRINCIPAL_SIZE_BYTES: usize = 29;
+
+// Error Codes
+const SIGN_ERROR_INVALID_TO_SUB_ACCOUNT: i32 = 1001;
+const SIGN_ERROR_INVALID_FROM_PRINCIPAL: i32 = 1002;
+const SIGN_ERROR_INVALID_FROM_SUB_ACCOUNT: i32 = 1003;
 
 #[repr(C)]
 pub enum CEncodingCode {
@@ -102,4 +114,57 @@ pub unsafe extern "C" fn tw_encode_textual_principal(
     CString::new(textual_principal)
         .expect("failed to make c-string")
         .into_raw()
+}
+
+/// Encodes a principal byte array to an Internet Computer principal text.
+/// TODO
+/// TODO
+/// \return TODO
+#[no_mangle]
+pub unsafe extern "C" fn tw_sign(
+    from_sub_account_bytes: *const u8,
+    to_principal: *const c_char,
+    to_sub_account_bytes: *const u8,
+    amount: u64,
+    fee: u64,
+    memo: u64,
+    created_at_time: u64
+) -> CByteArrayResult {
+    let from_sub_account = match CByteArrayRef::new(from_sub_account_bytes, SUB_ACCOUNT_SIZE_BYTES).as_slice() {
+        Some(slice) => match slice.try_into() {
+            Ok(value) => Subaccount(value),
+            Err(_) => return CByteArrayResult::error(SIGN_ERROR_INVALID_TO_SUB_ACCOUNT)
+        },
+        None => return CByteArrayResult::error(SIGN_ERROR_INVALID_TO_SUB_ACCOUNT)
+    };
+
+    let to_principal = match CStr::from_ptr(to_principal).to_str() {
+        Ok(principal_text) => {
+            match Principal::from_text(principal_text) {
+                Ok(principal) => principal,
+                Err(_) => return CByteArrayResult::error(SIGN_ERROR_INVALID_FROM_PRINCIPAL),
+            }
+        },
+        Err(_) => return CByteArrayResult::error(SIGN_ERROR_INVALID_FROM_PRINCIPAL),
+    };
+
+    let to_sub_account = match CByteArrayRef::new(to_sub_account_bytes, SUB_ACCOUNT_SIZE_BYTES).as_slice() {
+        Some(slice) => match slice.try_into() {
+            Ok(value) => Subaccount(value),
+            Err(_) => return CByteArrayResult::error(SIGN_ERROR_INVALID_TO_SUB_ACCOUNT)
+        },
+        None => Subaccount([0; 32])
+    };
+
+    sign_transfer::sign(
+        from_sub_account,
+        to_principal,
+        to_sub_account,
+        amount,
+        fee,
+        memo,
+        created_at_time
+    )
+        .map(CByteArray::new)
+        .into()
 }
