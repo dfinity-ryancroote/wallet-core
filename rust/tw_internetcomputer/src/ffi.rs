@@ -13,8 +13,8 @@ use tw_memory::ffi::{
     c_result::ErrorCode,
 };
 
-use crate::{sign_transfer, encode, validation};
 use crate::types::account_identifier::Subaccount;
+use crate::{encode, validation};
 //use candid::types::TypeInner::Principal;
 use candid::Principal;
 
@@ -128,43 +128,33 @@ pub unsafe extern "C" fn tw_sign(
     amount: u64,
     fee: u64,
     memo: u64,
-    created_at_time: u64
+    created_at_time: u64,
 ) -> CByteArrayResult {
-    let from_sub_account = match CByteArrayRef::new(from_sub_account_bytes, SUB_ACCOUNT_SIZE_BYTES).as_slice() {
-        Some(slice) => match slice.try_into() {
-            Ok(value) => Subaccount(value),
-            Err(_) => return CByteArrayResult::error(SIGN_ERROR_INVALID_TO_SUB_ACCOUNT)
-        },
-        None => return CByteArrayResult::error(SIGN_ERROR_INVALID_TO_SUB_ACCOUNT)
-    };
+    let from_sub_account =
+        match CByteArrayRef::new(from_sub_account_bytes, SUB_ACCOUNT_SIZE_BYTES).as_slice() {
+            Some(slice) => match slice.try_into() {
+                Ok(value) => Subaccount(value),
+                Err(_) => return CByteArrayResult::error(SIGN_ERROR_INVALID_TO_SUB_ACCOUNT),
+            },
+            None => return CByteArrayResult::error(SIGN_ERROR_INVALID_TO_SUB_ACCOUNT),
+        };
 
     let to_principal = match CStr::from_ptr(to_principal).to_str() {
-        Ok(principal_text) => {
-            match Principal::from_text(principal_text) {
-                Ok(principal) => principal,
-                Err(_) => return CByteArrayResult::error(SIGN_ERROR_INVALID_FROM_PRINCIPAL),
-            }
+        Ok(principal_text) => match Principal::from_text(principal_text) {
+            Ok(principal) => principal,
+            Err(_) => return CByteArrayResult::error(SIGN_ERROR_INVALID_FROM_PRINCIPAL),
         },
         Err(_) => return CByteArrayResult::error(SIGN_ERROR_INVALID_FROM_PRINCIPAL),
     };
 
-    let to_sub_account = match CByteArrayRef::new(to_sub_account_bytes, SUB_ACCOUNT_SIZE_BYTES).as_slice() {
-        Some(slice) => match slice.try_into() {
-            Ok(value) => Subaccount(value),
-            Err(_) => return CByteArrayResult::error(SIGN_ERROR_INVALID_TO_SUB_ACCOUNT)
-        },
-        None => Subaccount([0; 32])
-    };
+    let to_sub_account =
+        match CByteArrayRef::new(to_sub_account_bytes, SUB_ACCOUNT_SIZE_BYTES).as_slice() {
+            Some(slice) => match slice.try_into() {
+                Ok(value) => Subaccount(value),
+                Err(_) => return CByteArrayResult::error(SIGN_ERROR_INVALID_TO_SUB_ACCOUNT),
+            },
+            None => Subaccount([0; 32]),
+        };
 
-    sign_transfer::sign(
-        from_sub_account,
-        to_principal,
-        to_sub_account,
-        amount,
-        fee,
-        memo,
-        created_at_time
-    )
-        .map(CByteArray::new)
-        .into()
+    CByteArrayResult::ok(CByteArray::new(vec![]))
 }

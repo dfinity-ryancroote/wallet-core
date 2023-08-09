@@ -3,15 +3,7 @@ use ic_ledger_types;
 use prost;
 use prost::Message;
 
-#[derive(
-    candid::CandidType,
-    candid::Deserialize,
-    serde::Serialize,
-    //comparable::Comparable,
-    Clone,
-    PartialEq,
-    prost::Message,
-)]
+#[derive(candid::Deserialize, serde::Serialize, Clone, PartialEq, prost::Message)]
 pub struct AccountIdentifier {
     /// Can contain either:
     ///   * the 32 byte identifier (4 byte checksum + 28 byte hash)
@@ -55,7 +47,6 @@ pub struct BlockIndex {
     Ord,
     Hash,
     Copy,
-    candid::CandidType,
     serde::Deserialize,
     serde::Serialize,
     Clone,
@@ -121,10 +112,8 @@ fn into_proto(args: SendArgs) -> SendRequest {
         payment,
         max_fee: Some(tokens_into_proto(fee)),
         from_subaccount: None,
-        to: Some(to).map(|ai: crate::types::account_identifier::AccountIdentifier| {
-            AccountIdentifier {
-                hash: ai.hash.to_vec(),
-            }
+        to: Some(to).map(|ai| AccountIdentifier {
+            hash: ai.as_ref().to_vec(),
         }),
         created_at: None,
         created_at_time: created_at_time.map(timestamp_into_proto),

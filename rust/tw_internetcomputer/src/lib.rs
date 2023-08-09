@@ -6,10 +6,9 @@
 
 pub mod encode;
 pub mod ffi;
+mod rosetta;
+mod send_request_proto;
+mod sign;
+mod sign_transfer_sendpb;
 pub mod types;
 pub mod validation;
-pub mod sign_transfer;
-mod sign_transfer_sendpb;
-mod public_key;
-mod send_request_proto;
-mod rosetta;

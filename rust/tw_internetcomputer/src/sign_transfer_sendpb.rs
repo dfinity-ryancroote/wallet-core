@@ -1,7 +1,5 @@
-use crate::public_key;
 use crate::rosetta::{EnvelopePair, Request, RequestEnvelope, RequestType, SignedTransaction};
 use crate::send_request_proto;
-use crate::types::account_identifier::AccountIdentifier;
 use candid::{CandidType, Principal};
 use ic_agent::Identity;
 use ic_agent::{
@@ -10,14 +8,13 @@ use ic_agent::{
     Agent,
 };
 use ic_ledger_types::{
-    AccountIdentifier as AccountIdentifierWithCRC, ChecksumError, Memo, Subaccount, Timestamp,
-    Tokens,
+    AccountIdentifier, ChecksumError, Memo, Subaccount, Timestamp, Tokens, DEFAULT_SUBACCOUNT,
 };
+use pkcs8::EncodePublicKey;
 use tw_encoding::hex;
 
 use k256::{ecdsa, ecdsa::signature::Signer, SecretKey};
 use serde::{Deserialize, Serialize};
-use std::ops::Sub;
 use std::time::Duration;
 use std::{
     convert::{TryFrom, TryInto},
@@ -80,7 +77,7 @@ pub fn sign_transfer(
     secret_key: Vec<u8>,
     ingress_expiry_duration: Duration,
 ) -> Result<String, String> {
-    let to_account_identifier_crc = AccountIdentifier::new(to_principal);
+    let to_account_identifier_crc = AccountIdentifier::new(&to_principal, &DEFAULT_SUBACCOUNT);
     let to = AccountIdentifier::from_hex(to_account_identifier_crc.to_hex().as_ref())
         .map_err(|e| e.to_string())?;
     let now = SystemTime::now();
@@ -177,8 +174,11 @@ fn sign_implementation(
     let secret_key =
         SecretKey::from_slice(secret_key).map_err(|_| "Error extracting secret key".to_string())?;
     let identity = Box::new(Secp256k1Identity::from_private_key(secret_key.clone()));
-    let public_key_bytes =
-        public_key::get_secp256k1_der_public_key(secret_key.public_key().clone())?;
+    let public_key_bytes = secret_key
+        .public_key()
+        .to_public_key_der()
+        .map_err(|e| e.to_string())?
+        .to_vec();
 
     // Get the signature from the ic agent
     let call_sig = identity.sign(&call_envelope).unwrap();
@@ -316,7 +316,7 @@ oUQDQgAEPas6Iag4TUx+Uop+3NhE6s3FlayFtbwdhRVjvOar0kPTfE/N8N6btRnd
         let from_principal = get_principal_from_text(
             "hpikg-6exdt-jn33w-ndty3-fc7jc-tl2lr-buih3-cs3y7-tftkp-sfp62-gqe",
         )?;
-        let from = AccountIdentifier::new(from_principal);
+        let from = AccountIdentifier::new(&from_principal, &DEFAULT_SUBACCOUNT);
         let secret_key = get_secp256k1_secret_key_bytes()?;
         let to_principal = get_principal_from_text(
             "t4u4z-y3dur-j63pk-nw4rv-yxdbt-agtt6-nygn7-ywh6y-zm2f4-sdzle-3qe",
