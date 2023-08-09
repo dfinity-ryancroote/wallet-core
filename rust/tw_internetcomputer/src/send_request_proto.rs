@@ -1,16 +1,16 @@
-use prost;
 use crate::sign_transfer_sendpb::SendArgs;
 use ic_ledger_types;
+use prost;
 use prost::Message;
 
 #[derive(
-candid::CandidType,
-candid::Deserialize,
-serde::Serialize,
-//comparable::Comparable,
-Clone,
-PartialEq,
-prost::Message,
+    candid::CandidType,
+    candid::Deserialize,
+    serde::Serialize,
+    //comparable::Comparable,
+    Clone,
+    PartialEq,
+    prost::Message,
 )]
 pub struct AccountIdentifier {
     /// Can contain either:
@@ -50,17 +50,17 @@ pub struct BlockIndex {
     pub height: u64,
 }
 #[derive(
-Eq,
-PartialOrd,
-Ord,
-Hash,
-Copy,
-candid::CandidType,
-serde::Deserialize,
-serde::Serialize,
-Clone,
-PartialEq,
-prost::Message,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Copy,
+    candid::CandidType,
+    serde::Deserialize,
+    serde::Serialize,
+    Clone,
+    PartialEq,
+    prost::Message,
 )]
 pub struct TimeStamp {
     #[prost(uint64, tag = "1")]
@@ -93,9 +93,7 @@ pub fn into_bytes(args: SendArgs) -> Result<Vec<u8>, String> {
 }
 
 pub fn tokens_into_proto(tokens: ic_ledger_types::Tokens) -> Tokens {
-    Tokens {
-        e8s: tokens.e8s(),
-    }
+    Tokens { e8s: tokens.e8s() }
 }
 
 pub fn timestamp_into_proto(ts: ic_ledger_types::Timestamp) -> TimeStamp {
@@ -122,17 +120,12 @@ fn into_proto(args: SendArgs) -> SendRequest {
         memo: Some(Memo { memo: memo.0 }),
         payment,
         max_fee: Some(tokens_into_proto(fee)),
-        from_subaccount: from_subaccount.map(|sa : ic_ledger_types::Subaccount| {
-            Subaccount {
-                sub_account: sa.0.to_vec(),
+        from_subaccount: None,
+        to: Some(to).map(|ai: crate::types::account_identifier::AccountIdentifier| {
+            AccountIdentifier {
+                hash: ai.hash.to_vec(),
             }
         }),
-        to: Some(to)
-            .map(|ai: crate::sign_transfer_sendpb::AccountIdentifier| {
-                AccountIdentifier {
-                    hash: ai.hash.to_vec()
-                }
-            }),
         created_at: None,
         created_at_time: created_at_time.map(timestamp_into_proto),
     }

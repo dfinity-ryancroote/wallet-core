@@ -3,7 +3,8 @@
 // The contents are borrowed from:
 // dfinity-lab/dfinity@25999dd54d29c24edb31483801bddfd8c1d780c8
 // https://github.com/dfinity-lab/dfinity/blob/master/rs/rosetta-api/canister/src/account_identifier.rs
-use candid::Principal;
+use candid::{CandidType, Principal};
+use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
@@ -20,7 +21,9 @@ const ACCOUNT_DOMAIN_SEPERATOR: &[u8] = b"\x0Aaccount-id";
 ///
 /// When it is encoded or decoded it will always be as a string to make it
 /// easier to use from DFX.
-#[derive(Clone, Copy, Hash, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(
+    Clone, Copy, Hash, Debug, CandidType, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord,
+)]
 pub struct AccountIdentifier {
     pub hash: [u8; 28],
 }

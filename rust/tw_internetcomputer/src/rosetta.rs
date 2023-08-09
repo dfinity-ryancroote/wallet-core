@@ -1,7 +1,7 @@
-use std::hash::{Hash, Hasher};
-use serde::{Deserialize, Serialize};
-use ic_agent::export::Principal;
 use ic_agent::agent::EnvelopeContent;
+use ic_agent::export::Principal;
+use serde::{Deserialize, Serialize};
+use std::hash::{Hash, Hasher};
 
 pub const STATUS_COMPLETED: &str = "COMPLETED";
 pub const TRANSACTION: &str = "TRANSACTION";

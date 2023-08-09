@@ -1,142 +1,34 @@
+use crate::public_key;
+use crate::rosetta::{EnvelopePair, Request, RequestEnvelope, RequestType, SignedTransaction};
+use crate::send_request_proto;
+use crate::types::account_identifier::AccountIdentifier;
+use candid::{CandidType, Principal};
+use ic_agent::Identity;
+use ic_agent::{
+    agent::{EnvelopeContent, UpdateBuilder},
+    identity::Secp256k1Identity,
+    Agent,
+};
+use ic_ledger_types::{
+    AccountIdentifier as AccountIdentifierWithCRC, ChecksumError, Memo, Subaccount, Timestamp,
+    Tokens,
+};
+
+use k256::{ecdsa, ecdsa::signature::Signer, SecretKey};
+use serde::{Deserialize, Serialize};
+use std::ops::Sub;
+use std::time::Duration;
 use std::{
-    time::SystemTime,
     convert::{TryFrom, TryInto},
     fmt::{Display, Formatter},
     str::FromStr,
+    time::SystemTime,
 };
-use std::ops::Sub;
-use candid::{
-    Principal,
-    CandidType
-};
-use ic_ledger_types::{
-    Memo,
-    Subaccount,
-    Tokens,
-    Timestamp,
-    AccountIdentifier as AccountIdentifierWithCRC
-};
-use ic_agent::{
-    Agent,
-    agent::{
-        UpdateBuilder,
-        EnvelopeContent,
-    },
-    identity::{
-        Secp256k1Identity,
-    },
-};
-use std::time::Duration;
-use k256::{
-    ecdsa,
-    ecdsa::{
-        signature::Signer,
-    },
-    SecretKey
-};
-use serde::{Deserialize, Serialize};
-use crate::rosetta::{EnvelopePair, RequestEnvelope, Request, SignedTransaction, RequestType};
-use crate::send_request_proto;
-use crate::public_key;
 
 pub const DOMAIN_IC_REQUEST: &[u8; 11] = b"\x0Aic-request";
 pub const IC_URL: &str = "https://ic0.app";
 pub const LEDGER_CANISTER: &str = "ryjl3-tyaaa-aaaaa-aaaba-cai";
 pub const METHOD_NAME: &str = "send_pb";
-
-#[derive(Serialize, Deserialize, CandidType, Clone, Copy, Hash, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct AccountIdentifier {
-    pub hash: [u8; 28],
-}
-
-impl AccountIdentifier {
-    pub fn from_hex(hex_str: &str) -> Result<AccountIdentifier, String> {
-        let hex: Vec<u8> = hex::decode(hex_str).map_err(|e| e.to_string())?;
-        Self::from_slice(&hex[..]).map_err(|err| match err {
-            // Since the input was provided in hex, return an error that is hex-friendly.
-            AccountIdParseError::InvalidLength(_) => format!(
-                "{} has a length of {} but we expected a length of 64 or 56",
-                hex_str,
-                hex_str.len()
-            ),
-            AccountIdParseError::InvalidChecksum(err) => err.to_string(),
-        })
-    }
-
-    /// Converts a blob into an `AccountIdentifier`.
-    ///
-    /// The blob can be either:
-    ///
-    /// 1. The 32-byte canonical format (4 byte checksum + 28 byte hash).
-    /// 2. The 28-byte hash.
-    ///
-    /// If the 32-byte canonical format is provided, the checksum is verified.
-    pub fn from_slice(v: &[u8]) -> Result<AccountIdentifier, AccountIdParseError> {
-        // Try parsing it as a 32-byte blob.
-        match v.try_into() {
-            Ok(h) => {
-                // It's a 32-byte blob. Validate the checksum.
-                check_sum(h).map_err(AccountIdParseError::InvalidChecksum)
-            }
-            Err(_) => {
-                // Try parsing it as a 28-byte hash.
-                match v.try_into() {
-                    Ok(hash) => Ok(AccountIdentifier { hash }),
-                    Err(_) => Err(AccountIdParseError::InvalidLength(v.to_vec())),
-                }
-            }
-        }
-    }
-
-    pub fn generate_checksum(&self) -> [u8; 4] {
-        let mut hasher = crc32fast::Hasher::new();
-        hasher.update(&self.hash);
-        hasher.finalize().to_be_bytes()
-    }
-}
-
-fn check_sum(hex: [u8; 32]) -> Result<AccountIdentifier, ChecksumError> {
-    // Get the checksum provided
-    let found_checksum = &hex[0..4];
-
-    // Copy the hash into a new array
-    let mut hash = [0; 28];
-    hash.copy_from_slice(&hex[4..32]);
-
-    let account_id = AccountIdentifier { hash };
-    let expected_checksum = account_id.generate_checksum();
-
-    // Check the generated checksum matches
-    if expected_checksum == found_checksum {
-        Ok(account_id)
-    } else {
-        Err(ChecksumError {
-            input: hex,
-            expected_checksum,
-            found_checksum: found_checksum.try_into().unwrap(),
-        })
-    }
-}
-
-/// An error for reporting invalid checksums.
-#[derive(Debug, PartialEq, Eq)]
-pub struct ChecksumError {
-    input: [u8; 32],
-    expected_checksum: [u8; 4],
-    found_checksum: [u8; 4],
-}
-
-impl Display for ChecksumError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "Checksum failed for {}, expected check bytes {} but found {}",
-            hex::encode(&self.input[..]),
-            hex::encode(self.expected_checksum),
-            hex::encode(self.found_checksum),
-        )
-    }
-}
 
 /// An error for reporting invalid Account Identifiers.
 #[derive(Debug, PartialEq, Eq)]
@@ -154,7 +46,6 @@ pub struct SendArgs {
     pub to: AccountIdentifier,
     pub created_at_time: Option<Timestamp>,
 }
-
 
 #[derive(Debug, Default, Clone, Deserialize, Serialize)]
 pub struct RequestStatus {
@@ -177,8 +68,6 @@ pub struct IngressWithRequestId {
     pub request_status: RequestStatus,
 }
 
-
-
 pub fn sign_transfer(
     memo: u64,
     amount: u64,
@@ -188,28 +77,23 @@ pub fn sign_transfer(
     to_principal: Principal,
     to_subaccount: Subaccount,
     secret_key: Vec<u8>,
-    ingress_expiry_duration: Duration
+    ingress_expiry_duration: Duration,
 ) -> Result<String, String> {
-    let to_account_identifier_crc = AccountIdentifierWithCRC::new(
-        &to_principal,
-        &to_subaccount
-    );
-    let to = AccountIdentifier::from_hex(
-        to_account_identifier_crc.to_hex().as_ref()
-    )
+    let to_account_identifier_crc = AccountIdentifier::new(to_principal);
+    let to = AccountIdentifier::from_hex(to_account_identifier_crc.to_hex().as_ref())
         .map_err(|e| e.to_string())?;
     let now = SystemTime::now();
     let send_args = SendArgs {
         memo: Memo(memo),
         amount: Tokens::from_e8s(amount),
         fee: Tokens::from_e8s(fee),
-        from_subaccount: Some(from_subaccount),
+        from_subaccount: None,
         to,
         created_at_time: Some(Timestamp {
             timestamp_nanos: now
                 .duration_since(SystemTime::UNIX_EPOCH)
                 .map_err(|_| "error generating timestamp".to_string())?
-                .as_nanos() as u64
+                .as_nanos() as u64,
         }),
     };
 
@@ -223,9 +107,7 @@ pub fn sign_transfer(
         IC_URL.to_string(),
         ingress_expiry_duration,
     )
-
 }
-
 
 pub fn sign(
     canister_id: String,
@@ -237,8 +119,7 @@ pub fn sign(
     ic_url: String,
     ingress_expiry: Duration,
 ) -> Result<String, String> {
-    let canister_id = Principal::from_text(canister_id)
-        .map_err(|e| e.to_string())?;
+    let canister_id = Principal::from_text(canister_id).map_err(|e| e.to_string())?;
 
     // Encode transfer arguments with protobuf to convert it to array (vector) for u8s
     let arg = send_request_proto::into_bytes(send_args.clone())?;
@@ -254,7 +135,7 @@ pub fn sign(
         send_args
             .created_at_time
             .ok_or("creation timestamp not found")?
-            .timestamp_nanos
+            .timestamp_nanos,
     )
 }
 
@@ -266,12 +147,10 @@ fn sign_implementation(
     sender: Principal,
     ic_url: String,
     ingress_expiry: Duration,
-    creation_time_nanos: u64
+    creation_time_nanos: u64,
 ) -> Result<String, String> {
     // Calculate ingress expiry timestamp
-    let ingress_expiry_timestamp = Duration::from_nanos(
-        creation_time_nanos
-    )
+    let ingress_expiry_timestamp = Duration::from_nanos(creation_time_nanos)
         .checked_add(ingress_expiry)
         .ok_or("Error creating valid ingress expiry timestamp")?
         .as_nanos() as u64;
@@ -294,65 +173,40 @@ fn sign_implementation(
     };
 
     // Build secret key
-    let secret_key = SecretKey::from_slice(secret_key)
-        .map_err(|_| "Error extracting secret key".to_string())?;
-    let identity = Box::new(
-        Secp256k1Identity::from_private_key(secret_key.clone())
-    );
-    let public_key_bytes = public_key::get_secp256k1_der_public_key(
-        secret_key.public_key().clone()
-    )?;
-
-    // Build ic agent to perform signing operation
-    let agent = Agent::builder()
-        .with_url(ic_url)
-        .with_ingress_expiry(Some(ingress_expiry))
-        .with_boxed_identity(identity)
-        .build()
-        .map_err(|err| err.to_string())?;
+    let secret_key =
+        SecretKey::from_slice(secret_key).map_err(|_| "Error extracting secret key".to_string())?;
+    let identity = Box::new(Secp256k1Identity::from_private_key(secret_key.clone()));
+    let public_key_bytes =
+        public_key::get_secp256k1_der_public_key(secret_key.public_key().clone())?;
 
     // Get the signature from the ic agent
-    let signed_update = UpdateBuilder::new(
-        &agent,
-        canister_id,
-        method_name
-    )
-        .with_arg(arg)
-        .expire_after(ingress_expiry)
-        .sign()
-        .map_err(|e| e.to_string())?;
-
-    let request_status_signed = agent
-        .sign_request_status(canister_id, request_id)
-        .map_err(|_| "Error while signing requst status")?;
+    let call_sig = identity.sign(&call_envelope).unwrap();
+    let request_status_sig = identity.sign(&read_state_envelope).unwrap();
 
     let envelop_pair = EnvelopePair {
         update: RequestEnvelope {
             content: call_envelope,
             sender_pubkey: Some(public_key_bytes.clone()),
-            sender_sig: Some(signed_update.signed_update),
+            sender_sig: call_sig.signature,
         },
         read_state: RequestEnvelope {
             content: read_state_envelope,
             sender_pubkey: Some(public_key_bytes),
-            sender_sig: Some(request_status_signed.signed_request_status),
-        }
+            sender_sig: request_status_sig.signature,
+        },
     };
     let request: Request = (RequestType::Send, vec![envelop_pair]);
     let signed_transaction: SignedTransaction = vec![request];
-    Ok(hex::encode(serde_cbor::to_vec(&signed_transaction)
-        .map_err(|_|"error during cbor serialization")?))
+    Ok(hex::encode(
+        serde_cbor::to_vec(&signed_transaction).map_err(|_| "error during cbor serialization")?,
+    ))
 }
 
-fn sign_secp256k1(
-    content: &[u8],
-    secret_key_slice: &[u8]
-) -> Result<Vec<u8>, String> {
+fn sign_secp256k1(content: &[u8], secret_key_slice: &[u8]) -> Result<Vec<u8>, String> {
     let secret_key = SecretKey::from_slice(secret_key_slice)
         .map_err(|_| "Error extracting secret key".to_string())?;
     let signing_key: ecdsa::SigningKey = secret_key.into();
-    let (ecdsa_sig,
-        _recovery_id) = signing_key.sign(content);
+    let (ecdsa_sig, _recovery_id) = signing_key.sign(content);
     let r = ecdsa_sig.r().as_ref().to_bytes();
     let s = ecdsa_sig.s().as_ref().to_bytes();
     let mut bytes = [0u8; 64];
@@ -366,53 +220,36 @@ fn sign_secp256k1(
 
 #[cfg(test)]
 mod tests {
-    use crate::sign_transfer_sendpb::{
-        AccountIdentifier,
-        sign_secp256k1,
-        sign_transfer
-    };
+    use crate::sign_transfer_sendpb::{sign_secp256k1, sign_transfer, AccountIdentifier};
 
-    use ic_agent::{
-        identity::{
-            Secp256k1Identity,
-        },
-        Identity,
-        agent::EnvelopeContent
-    };
+    use ic_agent::{agent::EnvelopeContent, identity::Secp256k1Identity, Identity};
 
-    use k256::{
-        ecdsa,
-        pkcs8,
-        pkcs8::{
-            Document,
-            EncodePublicKey
-        },
-        PublicKey,
-        SecretKey
-    };
     use candid::Principal;
-    use std::time::Duration;
-    use ic_ledger_types::{
-        Subaccount,
-        AccountIdentifier as AccountIdentifierWithCRC
+    use ic_ledger_types::{AccountIdentifier as AccountIdentifierWithCRC, Subaccount};
+    use k256::{
+        ecdsa, pkcs8,
+        pkcs8::{Document, EncodePublicKey},
+        PublicKey, SecretKey,
     };
+    use std::time::Duration;
 
     pub const IC_URL: &str = "https://ic0.app";
     pub const LEDGER_CANISTER: &str = "ryjl3-tyaaa-aaaaa-aaaba-cai";
     pub const METHOD_NAME: &str = "send_pb";
     pub const ECDSA_SECP256K1: &str = "-----BEGIN EC PRIVATE KEY-----
-MHQCAQEEIPsTPMsLBgjMyv36kvCrb2rOP8sH1+76PRzAWuycKVaToAcGBSuBBAAK
-oUQDQgAE/WCEaPgIP8m/zQULrL1htecNlTLeKcWsnnwb1MmTXGkjiz6CWGW9z83n
-EaEbktCSDAPeCb4KB6/L3XBACX3YCA==
+MHQCAQEEICJxApEbuZznKFpV+VKACRK30i6+7u5Z13/DOl18cIC+oAcGBSuBBAAK
+oUQDQgAEPas6Iag4TUx+Uop+3NhE6s3FlayFtbwdhRVjvOar0kPTfE/N8N6btRnd
+74ly5xXEBNSXiENyxhEuzOZrIWMCNQ==
 -----END EC PRIVATE KEY-----";
-    pub const PRINCIPAL_ID_TEXT: &str = "meky5-ylcvy-7z53d-oqtoh-yxmvs-akp7v-p2ugh-swlsw-tpdw5-jl6wg-nqe";
+    pub const PRINCIPAL_ID_TEXT: &str =
+        "meky5-ylcvy-7z53d-oqtoh-yxmvs-akp7v-p2ugh-swlsw-tpdw5-jl6wg-nqe";
 
     pub fn get_secp256k1_secret_key() -> Result<SecretKey, String> {
         SecretKey::from_sec1_pem(ECDSA_SECP256K1)
             .map_err(|_| pkcs8::Error::KeyMalformed.to_string())
     }
 
-    pub fn get_secp256k1_secret_key_bytes() -> Result<Vec<u8>, String>{
+    pub fn get_secp256k1_secret_key_bytes() -> Result<Vec<u8>, String> {
         Ok(get_secp256k1_secret_key()?.to_bytes().to_vec())
     }
 
@@ -432,22 +269,19 @@ EaEbktCSDAPeCb4KB6/L3XBACX3YCA==
         hex::encode(public_key_der)
     }
 
-    pub fn get_secp256k1_signing_key_bytes(secret_key: SecretKey) -> Vec<u8>{
+    pub fn get_secp256k1_signing_key_bytes(secret_key: SecretKey) -> Vec<u8> {
         let signing_key: ecdsa::SigningKey = secret_key.into();
         signing_key.to_bytes().to_vec()
     }
 
     pub fn get_principal_from_text(principal_text: &str) -> Result<Principal, String> {
-        Principal::from_text(principal_text)
-            .map_err(|e| e.to_string())
+        Principal::from_text(principal_text).map_err(|e| e.to_string())
     }
 
     #[test]
     fn test_secp256k_key_bytes() -> Result<(), String> {
         let data: [u8; 16] = [1; 16];
-        let identity = Secp256k1Identity::from_pem(
-            ECDSA_SECP256K1.as_bytes()
-        )
+        let identity = Secp256k1Identity::from_pem(ECDSA_SECP256K1.as_bytes())
             .map_err(|_| "Error reading pem bytes")?;
 
         let message = EnvelopeContent::Call {
@@ -456,7 +290,7 @@ EaEbktCSDAPeCb4KB6/L3XBACX3YCA==
             sender: identity.sender().unwrap(),
             canister_id: "bkyz2-fmaaa-aaaaa-qaaaq-cai".parse().unwrap(),
             method_name: "greet".to_string(),
-            arg: vec![1,1,1,1,1,1,1,1],
+            arg: vec![1, 1, 1, 1, 1, 1, 1, 1],
         };
         let result1 = identity
             .sign(&message)?
@@ -465,43 +299,36 @@ EaEbktCSDAPeCb4KB6/L3XBACX3YCA==
 
         let content = message.to_request_id().signable();
         let secret_key = get_secp256k1_secret_key_bytes()?;
-        let result2 = sign_secp256k1(
-            content.as_slice(),
-            secret_key.as_slice())?;
+        let result2 = sign_secp256k1(content.as_slice(), secret_key.as_slice())?;
         assert_eq!(&result1[..], &result2[..]);
         Ok(())
     }
 
     #[test]
-    pub fn test_call_sign() -> Result<(), String>{
-        let ingress_expiry_duration = Duration::from_secs(5 * 60);
-        let canister_id = Principal::from_text(LEDGER_CANISTER)
-            .map_err(|e| e.to_string())?;
-        let from_subaccount = Subaccount([0;32]);
+    pub fn test_call_sign() -> Result<(), String> {
+        let ingress_expiry_duration = Duration::from_secs(1 * 60);
+        let canister_id = Principal::from_text(LEDGER_CANISTER).map_err(|e| e.to_string())?;
+        let from_subaccount = Subaccount([0; 32]);
         let from_principal = get_principal_from_text(
-            "meky5-ylcvy-7z53d-oqtoh-yxmvs-akp7v-p2ugh-swlsw-tpdw5-jl6wg-nqe"
+            "hpikg-6exdt-jn33w-ndty3-fc7jc-tl2lr-buih3-cs3y7-tftkp-sfp62-gqe",
         )?;
-        let from_account_identifier_crc = AccountIdentifierWithCRC::new(&from_principal, &from_subaccount);
-        let from = AccountIdentifier::from_hex(
-            from_account_identifier_crc.to_hex().as_ref()
-        )
-            .map_err(|e| e.to_string())?;
+        let from = AccountIdentifier::new(from_principal);
         let secret_key = get_secp256k1_secret_key_bytes()?;
         let to_principal = get_principal_from_text(
-            "22ytb-hyvdp-o2eb4-k2c2v-nyomn-lzpsu-lbhc2-iw3c3-uouvh-7ecjo-5qe"
+            "t4u4z-y3dur-j63pk-nw4rv-yxdbt-agtt6-nygn7-ywh6y-zm2f4-sdzle-3qe",
         )?;
         let to_subaccount = Subaccount([0; 32]);
 
         let transfer: String = sign_transfer(
             0,
-            100000,
+            100000000,
             10000,
             from_subaccount,
             from_principal,
             to_principal,
             to_subaccount,
             secret_key,
-            ingress_expiry_duration
+            ingress_expiry_duration,
         )?;
         println!("{:?}", transfer);
         Ok(())
