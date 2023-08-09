@@ -16,11 +16,11 @@ use ic_ledger_types::{
     Timestamp,
     AccountIdentifier as AccountIdentifierWithCRC
 };
-use ic_agent::agent::EnvelopeContent;
 use ic_agent::{
     Agent,
     agent::{
         UpdateBuilder,
+        EnvelopeContent,
     },
     identity::{
         Secp256k1Identity,
@@ -35,13 +35,14 @@ use k256::{
     SecretKey
 };
 use serde::{Deserialize, Serialize};
+use crate::rosetta::{EnvelopePair, RequestEnvelope, Request, SignedTransaction, RequestType};
 use crate::send_request_proto;
+use crate::public_key;
 
 pub const DOMAIN_IC_REQUEST: &[u8; 11] = b"\x0Aic-request";
 pub const IC_URL: &str = "https://ic0.app";
 pub const LEDGER_CANISTER: &str = "ryjl3-tyaaa-aaaaa-aaaba-cai";
 pub const METHOD_NAME: &str = "send_pb";
-
 
 #[derive(Serialize, Deserialize, CandidType, Clone, Copy, Hash, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct AccountIdentifier {
@@ -207,7 +208,7 @@ pub fn sign_transfer(
         created_at_time: Some(Timestamp {
             timestamp_nanos: now
                 .duration_since(SystemTime::UNIX_EPOCH)
-                .unwrap()
+                .map_err(|_| "error generating timestamp".to_string())?
                 .as_nanos() as u64
         }),
     };
@@ -236,47 +237,73 @@ pub fn sign(
     ic_url: String,
     ingress_expiry: Duration,
 ) -> Result<String, String> {
-
-
     let canister_id = Principal::from_text(canister_id)
         .map_err(|e| e.to_string())?;
+
+    // Encode transfer arguments with protobuf to convert it to array (vector) for u8s
+    let arg = send_request_proto::into_bytes(send_args.clone())?;
 
     sign_implementation(
         canister_id,
         method_name,
-        send_args,
+        arg,
         secret_key,
         sender,
         ic_url,
-        ingress_expiry
+        ingress_expiry,
+        send_args
+            .created_at_time
+            .ok_or("creation timestamp not found")?
+            .timestamp_nanos
     )
 }
 
 fn sign_implementation(
     canister_id: Principal,
     method_name: String,
-    send_args: SendArgs,
+    arg: Vec<u8>,
     secret_key: &[u8],
     sender: Principal,
     ic_url: String,
-    ingress_expiry: Duration, /*Duration::from_secs(5 * 60)*/
+    ingress_expiry: Duration,
+    creation_time_nanos: u64
 ) -> Result<String, String> {
-    let arg = send_request_proto::into_bytes(send_args.clone())?;
-    let envelope = EnvelopeContent::Call {
+    // Calculate ingress expiry timestamp
+    let ingress_expiry_timestamp = Duration::from_nanos(
+        creation_time_nanos
+    )
+        .checked_add(ingress_expiry)
+        .ok_or("Error creating valid ingress expiry timestamp")?
+        .as_nanos() as u64;
+    // Build update call envelope
+    let call_envelope = EnvelopeContent::Call {
         canister_id,
         method_name: method_name.clone(),
         arg: arg.clone(),
         nonce: None,
         sender,
-        ingress_expiry: ingress_expiry.as_nanos() as u64,
+        ingress_expiry: ingress_expiry_timestamp,
     };
-    let request_id = envelope.to_request_id();
+    let request_id = call_envelope.to_request_id();
+
+    // Build read state envelope
+    let read_state_envelope = EnvelopeContent::ReadState {
+        ingress_expiry: ingress_expiry_timestamp,
+        sender,
+        paths: vec![vec!["request_status".into(), request_id.as_slice().into()]],
+    };
+
+    // Build secret key
     let secret_key = SecretKey::from_slice(secret_key)
         .map_err(|_| "Error extracting secret key".to_string())?;
     let identity = Box::new(
-        Secp256k1Identity::from_private_key(secret_key)
+        Secp256k1Identity::from_private_key(secret_key.clone())
     );
+    let public_key_bytes = public_key::get_secp256k1_der_public_key(
+        secret_key.public_key().clone()
+    )?;
 
+    // Build ic agent to perform signing operation
     let agent = Agent::builder()
         .with_url(ic_url)
         .with_ingress_expiry(Some(ingress_expiry))
@@ -284,6 +311,7 @@ fn sign_implementation(
         .build()
         .map_err(|err| err.to_string())?;
 
+    // Get the signature from the ic agent
     let signed_update = UpdateBuilder::new(
         &agent,
         canister_id,
@@ -294,27 +322,26 @@ fn sign_implementation(
         .sign()
         .map_err(|e| e.to_string())?;
 
-    let ingress = Ingress {
-        call_type: "update".to_string(),
-        request_id: Some(request_id.into()),
-        content: hex::encode(signed_update.signed_update.clone()),
-        role: Some("nns:ledger".to_string()),
-    };
-
     let request_status_signed = agent
         .sign_request_status(canister_id, request_id)
         .map_err(|_| "Error while signing requst status")?;
-    let request_status = RequestStatus {
-        canister_id: canister_id.to_string(),
-        request_id: request_id.into(),
-        content: hex::encode(request_status_signed.signed_request_status),
+
+    let envelop_pair = EnvelopePair {
+        update: RequestEnvelope {
+            content: call_envelope,
+            sender_pubkey: Some(public_key_bytes.clone()),
+            sender_sig: Some(signed_update.signed_update),
+        },
+        read_state: RequestEnvelope {
+            content: read_state_envelope,
+            sender_pubkey: Some(public_key_bytes),
+            sender_sig: Some(request_status_signed.signed_request_status),
+        }
     };
-    let message = IngressWithRequestId {
-        ingress,
-        request_status,
-    };
-    Ok(serde_json::to_string(&message)
-        .map_err(|_|"error during json serialization")?)
+    let request: Request = (RequestType::Send, vec![envelop_pair]);
+    let signed_transaction: SignedTransaction = vec![request];
+    Ok(hex::encode(serde_cbor::to_vec(&signed_transaction)
+        .map_err(|_|"error during cbor serialization")?))
 }
 
 fn sign_secp256k1(
@@ -336,7 +363,6 @@ fn sign_secp256k1(
     bytes[32 + (32 - s.len())..].clone_from_slice(&s);
     Ok(bytes.to_vec()) //Signature bytes
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -379,6 +405,7 @@ MHQCAQEEIPsTPMsLBgjMyv36kvCrb2rOP8sH1+76PRzAWuycKVaToAcGBSuBBAAK
 oUQDQgAE/WCEaPgIP8m/zQULrL1htecNlTLeKcWsnnwb1MmTXGkjiz6CWGW9z83n
 EaEbktCSDAPeCb4KB6/L3XBACX3YCA==
 -----END EC PRIVATE KEY-----";
+    pub const PRINCIPAL_ID_TEXT: &str = "meky5-ylcvy-7z53d-oqtoh-yxmvs-akp7v-p2ugh-swlsw-tpdw5-jl6wg-nqe";
 
     pub fn get_secp256k1_secret_key() -> Result<SecretKey, String> {
         SecretKey::from_sec1_pem(ECDSA_SECP256K1)
@@ -476,6 +503,7 @@ EaEbktCSDAPeCb4KB6/L3XBACX3YCA==
             secret_key,
             ingress_expiry_duration
         )?;
+        println!("{:?}", transfer);
         Ok(())
     }
 }
