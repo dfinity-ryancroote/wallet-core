@@ -13,6 +13,7 @@ use ic_ledger_types::{
     AccountIdentifier as AccountIdentifierWithCRC, ChecksumError, Memo, Subaccount, Timestamp,
     Tokens,
 };
+use tw_encoding::hex;
 
 use k256::{ecdsa, ecdsa::signature::Signer, SecretKey};
 use serde::{Deserialize, Serialize};
@@ -198,7 +199,8 @@ fn sign_implementation(
     let request: Request = (RequestType::Send, vec![envelop_pair]);
     let signed_transaction: SignedTransaction = vec![request];
     Ok(hex::encode(
-        serde_cbor::to_vec(&signed_transaction).map_err(|_| "error during cbor serialization")?,
+        &serde_cbor::to_vec(&signed_transaction).map_err(|_| "error during cbor serialization")?,
+        false,
     ))
 }
 
@@ -220,12 +222,14 @@ fn sign_secp256k1(content: &[u8], secret_key_slice: &[u8]) -> Result<Vec<u8>, St
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     use crate::sign_transfer_sendpb::{sign_secp256k1, sign_transfer, AccountIdentifier};
 
     use ic_agent::{agent::EnvelopeContent, identity::Secp256k1Identity, Identity};
 
     use candid::Principal;
-    use ic_ledger_types::{AccountIdentifier as AccountIdentifierWithCRC, Subaccount};
+    use ic_ledger_types::Subaccount;
     use k256::{
         ecdsa, pkcs8,
         pkcs8::{Document, EncodePublicKey},
@@ -266,7 +270,7 @@ oUQDQgAEPas6Iag4TUx+Uop+3NhE6s3FlayFtbwdhRVjvOar0kPTfE/N8N6btRnd
     }
 
     pub fn get_secp256k1_der_hex_public_key(public_key_der: Document) -> String {
-        hex::encode(public_key_der)
+        hex::encode(public_key_der.as_bytes(), false)
     }
 
     pub fn get_secp256k1_signing_key_bytes(secret_key: SecretKey) -> Vec<u8> {

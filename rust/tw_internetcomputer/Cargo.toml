@@ -16,7 +16,6 @@ tw_hash = { path = "../tw_hash" }
 tw_memory = { path = "../tw_memory" }
 pkcs8 = { version = "0.10.2", features = ["alloc"] }
 k256 = { version = "0.13.1", features = ["pem"] }
-hex = "0.4.3"
 serde = { version = "1.0.136", features = ["derive"] }
 serde_cbor = "0.11.2"
 prost = "0.11.9"

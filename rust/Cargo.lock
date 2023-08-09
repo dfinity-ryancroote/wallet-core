@@ -2230,7 +2230,6 @@ dependencies = [
  "comparable",
  "crc32fast",
  "der",
- "hex",
  "ic-agent",
  "ic-ledger-types",
  "k256",
