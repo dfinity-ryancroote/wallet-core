@@ -9,10 +9,6 @@ pub enum EncodePrincipalError {
     FailedDerEncode,
 }
 
-const ALGORITHM_OID: pkcs8::ObjectIdentifier =
-    pkcs8::ObjectIdentifier::new_unwrap("1.2.840.10045.2.1");
-const OID: pkcs8::ObjectIdentifier = pkcs8::ObjectIdentifier::new_unwrap("1.3.132.0.10");
-
 fn encode_public_key_to_der(
     public_key_bytes: &[u8],
 ) -> Result<der::Document, EncodePrincipalError> {

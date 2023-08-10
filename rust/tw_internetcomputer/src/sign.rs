@@ -1,3 +1,4 @@
+pub mod identity;
 pub mod interface_spec;
 mod proto;
 mod rosetta;
