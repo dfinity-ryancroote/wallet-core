@@ -232,6 +232,7 @@ mod tests {
     use super::*;
 
     use crate::{
+        sign::interface_spec::envelope::EnvelopeContent as InternalEnvelopeContent,
         sign::interface_spec::request_id,
         sign_transfer_sendpb::{sign_secp256k1, sign_transfer, AccountIdentifier},
     };
@@ -308,20 +309,21 @@ oUQDQgAEPas6Iag4TUx+Uop+3NhE6s3FlayFtbwdhRVjvOar0kPTfE/N8N6btRnd
             method_name: method_name.clone(),
             arg: vec![1, 1, 1, 1, 1, 1, 1, 1],
         };
+        let internal_message = InternalEnvelopeContent::Call {
+            nonce: None,
+            ingress_expiry: 0,
+            sender,
+            canister_id,
+            method_name: method_name.clone(),
+            arg: vec![1, 1, 1, 1, 1, 1, 1, 1],
+        };
+
         let result1 = identity
             .sign(&message)?
             .signature
             .ok_or("Invalid signature in result1")?;
 
-        let request_id = request_id::representation_independent_hash_call_or_query(
-            request_id::CallOrQuery::Call,
-            canister_id.as_slice().to_vec(),
-            method_name.as_str(),
-            vec![1, 1, 1, 1, 1, 1, 1, 1],
-            0,
-            sender.as_slice().to_vec(),
-            None,
-        );
+        let request_id = internal_message.to_request_id();
 
         let request_id_signable = request_id::make_sig_data(&request_id);
         assert_eq!(
