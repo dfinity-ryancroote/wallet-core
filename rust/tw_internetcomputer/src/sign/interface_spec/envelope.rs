@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use super::request_id::{self, RequestId};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RequestEnvelope {
+pub struct Envelope {
     pub content: EnvelopeContent,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sender_pubkey: Option<Vec<u8>>,
