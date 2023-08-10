@@ -5,6 +5,8 @@ use std::collections::BTreeMap;
 
 pub const DOMAIN_IC_REQUEST: &[u8; 11] = b"\x0Aic-request";
 
+pub struct RequestId(pub [u8; 32]);
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum CallOrQuery {
     Call,
@@ -111,7 +113,7 @@ fn hash_of_map<S: ToString>(map: &BTreeMap<S, RawHttpRequestVal>) -> [u8; 32] {
     <[u8; 32]>::try_from(result).unwrap_or([0; 32])
 }
 
-pub fn representation_indepent_hash_call_or_query(
+pub fn representation_independent_hash_call_or_query(
     request_type: CallOrQuery,
     canister_id: Vec<u8>,
     method_name: &str,
@@ -119,7 +121,7 @@ pub fn representation_indepent_hash_call_or_query(
     ingress_expiry: u64,
     sender: Vec<u8>,
     nonce: Option<&[u8]>,
-) -> [u8; 32] {
+) -> RequestId {
     use RawHttpRequestVal::*;
     let mut map = btreemap! {
         "request_type".to_string() => match request_type {
@@ -135,7 +137,7 @@ pub fn representation_indepent_hash_call_or_query(
     if let Some(some_nonce) = nonce {
         map.insert("nonce".to_string(), Bytes(some_nonce.to_vec()));
     }
-    hash_of_map(&map)
+    RequestId(hash_of_map(&map))
 }
 
 pub fn representation_independent_hash_read_state(
@@ -143,7 +145,7 @@ pub fn representation_independent_hash_read_state(
     paths: &[Vec<Vec<u8>>],
     sender: Vec<u8>,
     nonce: Option<&[u8]>,
-) -> [u8; 32] {
+) -> RequestId {
     use RawHttpRequestVal::*;
     let mut map = btreemap! {
         "request_type".to_string() => String("read_state".to_string()),
@@ -163,13 +165,13 @@ pub fn representation_independent_hash_read_state(
     if let Some(some_nonce) = nonce {
         map.insert("nonce".to_string(), Bytes(some_nonce.to_vec()));
     }
-    hash_of_map(&map)
+    RequestId(hash_of_map(&map))
 }
 
-pub fn make_sig_data(message_id: &[u8]) -> Vec<u8> {
+pub fn make_sig_data(message_id: &RequestId) -> Vec<u8> {
     // Lifted from canister_client::agent::sign_message_id
     let mut sig_data = vec![];
     sig_data.extend_from_slice(DOMAIN_IC_REQUEST);
-    sig_data.extend_from_slice(message_id);
+    sig_data.extend_from_slice(message_id.0.as_slice());
     sig_data
 }

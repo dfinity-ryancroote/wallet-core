@@ -313,7 +313,7 @@ oUQDQgAEPas6Iag4TUx+Uop+3NhE6s3FlayFtbwdhRVjvOar0kPTfE/N8N6btRnd
             .signature
             .ok_or("Invalid signature in result1")?;
 
-        let request_id = request_id::representation_indepent_hash_call_or_query(
+        let request_id = request_id::representation_independent_hash_call_or_query(
             request_id::CallOrQuery::Call,
             canister_id.as_slice().to_vec(),
             method_name.as_str(),
@@ -336,12 +336,15 @@ oUQDQgAEPas6Iag4TUx+Uop+3NhE6s3FlayFtbwdhRVjvOar0kPTfE/N8N6btRnd
 
         let paths: Vec<Vec<Vec<u8>>> = vec![vec![
             "request_status".as_bytes().to_vec(),
-            request_id.as_slice().to_vec(),
+            request_id.0.as_slice().to_vec(),
         ]];
         let read_state = EnvelopeContent::ReadState {
             ingress_expiry: 0,
             sender,
-            paths: vec![vec!["request_status".into(), request_id.as_slice().into()]],
+            paths: vec![vec![
+                "request_status".into(),
+                request_id.0.as_slice().into(),
+            ]],
         };
 
         let read_state_signable =

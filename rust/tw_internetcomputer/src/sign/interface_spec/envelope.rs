@@ -1,8 +1,7 @@
 use candid::Principal;
-use ic_certification::Label;
 use serde::{Deserialize, Serialize};
 
-use crate::sign_transfer_sendpb::RequestId;
+use super::request_id::{self, RequestId};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RequestEnvelope {
@@ -41,7 +40,7 @@ pub enum EnvelopeContent {
         /// The principal that is sending this request.
         sender: Principal,
         /// A list of paths within the state tree to fetch.
-        paths: Vec<Vec<Label>>,
+        paths: Vec<Vec<Vec<u8>>>,
     },
     /// An unreplicated call to a canister query method.
     Query {
@@ -57,4 +56,10 @@ pub enum EnvelopeContent {
         #[serde(with = "serde_bytes")]
         arg: Vec<u8>,
     },
+}
+
+impl EnvelopeContent {
+    pub fn to_request_id(&self) -> RequestId {
+        todo!();
+    }
 }
