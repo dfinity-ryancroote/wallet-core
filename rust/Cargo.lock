@@ -1143,6 +1143,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "maplit"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3e2e65a1a2e43cfcb47a895c4c8b10d1f4a61097f9f254f183aee60cad9c651d"
+
+[[package]]
 name = "memchr"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2231,14 +2237,18 @@ dependencies = [
  "crc32fast",
  "der",
  "ic-agent",
+ "ic-certification",
  "ic-ledger-types",
  "k256",
+ "maplit",
  "pkcs8",
  "prost",
  "prost-types",
  "serde",
+ "serde_bytes",
  "serde_cbor",
  "serde_json",
+ "sha2 0.10.6",
  "tw_encoding",
  "tw_hash",
  "tw_memory",

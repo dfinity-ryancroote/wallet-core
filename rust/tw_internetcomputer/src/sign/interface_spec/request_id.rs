@@ -1,9 +1,6 @@
-use serde::{Deserialize, Serialize};
-use sha2::{
-    Sha256,
-    Digest
-};
 use maplit::btreemap;
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 
 pub const DOMAIN_IC_REQUEST: &[u8; 11] = b"\x0Aic-request";
@@ -112,7 +109,6 @@ fn hash_of_map<S: ToString>(map: &BTreeMap<S, RawHttpRequestVal>) -> [u8; 32] {
 
     let result = &hasher.finalize()[..];
     <[u8; 32]>::try_from(result).unwrap_or([0; 32])
-
 }
 
 pub fn representation_indepent_hash_call_or_query(
@@ -170,7 +166,6 @@ pub fn representation_independent_hash_read_state(
     hash_of_map(&map)
 }
 
-
 pub fn make_sig_data(message_id: &[u8]) -> Vec<u8> {
     // Lifted from canister_client::agent::sign_message_id
     let mut sig_data = vec![];
@@ -178,4 +173,3 @@ pub fn make_sig_data(message_id: &[u8]) -> Vec<u8> {
     sig_data.extend_from_slice(message_id);
     sig_data
 }
-

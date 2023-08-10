@@ -8,7 +8,6 @@ pub mod encode;
 pub mod ffi;
 mod rosetta;
 mod send_request_proto;
-mod sign;
+pub mod sign;
 mod sign_transfer_sendpb;
 pub mod validation;
-mod request_id;

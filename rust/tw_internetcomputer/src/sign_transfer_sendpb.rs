@@ -1,6 +1,5 @@
 use crate::rosetta::{EnvelopePair, Request, RequestEnvelope, RequestType, SignedTransaction};
 use crate::send_request_proto;
-use crate::request_id;
 use candid::{CandidType, Principal};
 use ic_agent::Identity;
 use ic_agent::{
@@ -232,7 +231,10 @@ fn sign_secp256k1(content: &[u8], secret_key_slice: &[u8]) -> Result<Vec<u8>, St
 mod tests {
     use super::*;
 
-    use crate::sign_transfer_sendpb::{sign_secp256k1, sign_transfer, AccountIdentifier};
+    use crate::{
+        sign::interface_spec::request_id,
+        sign_transfer_sendpb::{sign_secp256k1, sign_transfer, AccountIdentifier},
+    };
 
     use ic_agent::{agent::EnvelopeContent, identity::Secp256k1Identity, Identity};
 
@@ -318,34 +320,42 @@ oUQDQgAEPas6Iag4TUx+Uop+3NhE6s3FlayFtbwdhRVjvOar0kPTfE/N8N6btRnd
             vec![1, 1, 1, 1, 1, 1, 1, 1],
             0,
             sender.as_slice().to_vec(),
-            None, );
-
-        let request_id_signable = request_id::make_sig_data(
-            &request_id,
+            None,
         );
-        assert_eq!(&request_id_signable[..], &message.to_request_id().signable()[..]);
+
+        let request_id_signable = request_id::make_sig_data(&request_id);
+        assert_eq!(
+            &request_id_signable[..],
+            &message.to_request_id().signable()[..]
+        );
 
         let secret_key = get_secp256k1_secret_key_bytes()?;
 
         let result2 = sign_secp256k1(request_id_signable.as_slice(), secret_key.as_slice())?;
         assert_eq!(&result1[..], &result2[..]);
 
-        let paths: Vec<Vec<Vec<u8>>> = vec![vec!["request_status".as_bytes().to_vec(), request_id.as_slice().to_vec()]];
+        let paths: Vec<Vec<Vec<u8>>> = vec![vec![
+            "request_status".as_bytes().to_vec(),
+            request_id.as_slice().to_vec(),
+        ]];
         let read_state = EnvelopeContent::ReadState {
             ingress_expiry: 0,
             sender,
             paths: vec![vec!["request_status".into(), request_id.as_slice().into()]],
         };
 
-        let read_state_signable = request_id::make_sig_data(&request_id::representation_independent_hash_read_state(
-            0,
-            paths.as_slice(),
-            sender.as_slice().to_vec(),
-            None,
-        ));
+        let read_state_signable =
+            request_id::make_sig_data(&request_id::representation_independent_hash_read_state(
+                0,
+                paths.as_slice(),
+                sender.as_slice().to_vec(),
+                None,
+            ));
 
-        assert_eq!(&read_state_signable[..], &read_state.to_request_id().signable()[..]);
-
+        assert_eq!(
+            &read_state_signable[..],
+            &read_state.to_request_id().signable()[..]
+        );
 
         Ok(())
     }
