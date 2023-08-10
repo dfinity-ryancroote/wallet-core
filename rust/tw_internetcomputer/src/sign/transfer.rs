@@ -1,8 +1,6 @@
 use std::{ops::Add, time::Duration};
 
-use candid::CandidType;
-use ic_ledger_types::{AccountIdentifier, Memo, Subaccount, Timestamp, Tokens};
-use serde::{Deserialize, Serialize};
+use ic_ledger_types::{AccountIdentifier, Memo, Timestamp, Tokens};
 use tw_encoding::hex;
 
 use super::{
@@ -19,12 +17,11 @@ const METHOD_NAME: &str = "send_pb";
 // The fee for a transfer is the always 10_000 e8s.
 const FEE: Tokens = Tokens::from_e8s(10_000);
 
-#[derive(Serialize, Deserialize, CandidType, Clone, Hash, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 pub struct SendArgs {
     pub memo: Memo,
     pub amount: Tokens,
     pub fee: Tokens,
-    pub from_subaccount: Option<Subaccount>,
     pub to: AccountIdentifier,
     pub created_at_time: Option<Timestamp>,
 }
@@ -45,7 +42,6 @@ pub fn transfer(
         memo: Memo(memo),
         amount: Tokens::from_e8s(amount),
         fee: FEE,
-        from_subaccount: None, // Uses the default subaccount.
         to: to_account_identifier,
         created_at_time: Some(Timestamp {
             timestamp_nanos: current_timestamp_nanos,

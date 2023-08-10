@@ -3,7 +3,7 @@ use ic_ledger_types;
 use prost;
 use prost::Message;
 
-#[derive(candid::Deserialize, serde::Serialize, Clone, PartialEq, prost::Message)]
+#[derive(Clone, PartialEq, prost::Message)]
 pub struct AccountIdentifier {
     /// Can contain either:
     ///   * the 32 byte identifier (4 byte checksum + 28 byte hash)
@@ -41,18 +41,7 @@ pub struct BlockIndex {
     #[prost(uint64, tag = "1")]
     pub height: u64,
 }
-#[derive(
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    Copy,
-    serde::Deserialize,
-    serde::Serialize,
-    Clone,
-    PartialEq,
-    prost::Message,
-)]
+#[derive(Clone, PartialEq, prost::Message)]
 pub struct TimeStamp {
     #[prost(uint64, tag = "1")]
     pub timestamp_nanos: u64,
@@ -98,7 +87,6 @@ fn into_proto(args: SendArgs) -> SendRequest {
         memo,
         amount,
         fee,
-        from_subaccount,
         to,
         created_at_time,
     } = args;
