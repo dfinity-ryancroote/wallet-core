@@ -1,3 +1,4 @@
+use ic_certification::Label;
 use maplit::btreemap;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -142,11 +143,12 @@ pub fn representation_independent_hash_call_or_query(
 
 pub fn representation_independent_hash_read_state(
     ingress_expiry: u64,
-    paths: &[Vec<Vec<u8>>],
+    paths: &[Vec<Label>],
     sender: Vec<u8>,
     nonce: Option<&[u8]>,
 ) -> RequestId {
     use RawHttpRequestVal::*;
+
     let mut map = btreemap! {
         "request_type".to_string() => String("read_state".to_string()),
         "ingress_expiry".to_string() => U64(ingress_expiry),
@@ -155,7 +157,7 @@ pub fn representation_independent_hash_read_state(
                 .map(|p| {
                     RawHttpRequestVal::Array(
                         p.iter()
-                            .map(|b| RawHttpRequestVal::Bytes(b.clone().to_vec()))
+                            .map(|b| RawHttpRequestVal::Bytes(b.as_bytes().to_vec()))
                             .collect(),
                     )
                 })

@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{ops::Add, time::Duration};
 
 use candid::CandidType;
 use ic_ledger_types::{AccountIdentifier, Memo, Subaccount, Timestamp, Tokens};
@@ -36,7 +36,10 @@ pub fn transfer(
     memo: u64,
     current_timestamp_secs: u64,
 ) -> Result<String, String> {
-    let current_timestamp_nanos = Duration::from_secs(current_timestamp_secs).as_nanos() as u64;
+    // Scale the current timestamp to to nanoseconds and add 60 seconds to account for drift.
+    let current_timestamp_nanos = Duration::from_secs(current_timestamp_secs)
+        .add(Duration::from_secs(60))
+        .as_nanos() as u64;
 
     let args = SendArgs {
         memo: Memo(memo),

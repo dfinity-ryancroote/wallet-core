@@ -132,7 +132,7 @@ impl EnvelopePair {
         ));
 
         assert!(matches!(
-            update_envelope.content,
+            read_state_envelope.content,
             EnvelopeContent::ReadState { .. }
         ));
 

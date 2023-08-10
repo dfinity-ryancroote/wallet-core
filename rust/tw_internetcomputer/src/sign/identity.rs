@@ -1,5 +1,8 @@
 use candid::Principal;
-use k256::SecretKey;
+use k256::{
+    ecdsa::{signature::Signer, SigningKey},
+    SecretKey,
+};
 use pkcs8::EncodePublicKey;
 
 pub struct Signature {
@@ -8,7 +11,7 @@ pub struct Signature {
 }
 
 pub struct Identity {
-    secret_key: SecretKey,
+    private_key: SigningKey,
     der_encoded_public_key: Vec<u8>,
 }
 
@@ -22,7 +25,7 @@ impl Identity {
             .to_vec();
 
         let identity = Self {
-            secret_key,
+            private_key: secret_key.into(),
             der_encoded_public_key,
         };
 
@@ -34,6 +37,24 @@ impl Identity {
     }
 
     pub fn sign(&self, content: Vec<u8>) -> Result<Signature, String> {
-        todo!()
+        let (ecdsa_sig, _recovery_id) = self
+            .private_key
+            .try_sign(&content)
+            .map_err(|e| format!("Failed to sign: {}", e))?;
+        let r = ecdsa_sig.r().as_ref().to_bytes();
+        let s = ecdsa_sig.s().as_ref().to_bytes();
+        let mut bytes = [0u8; 64];
+        if r.len() > 32 || s.len() > 32 {
+            return Err("Cannot create secp256k1 signature: malformed signature.".to_string());
+        }
+        bytes[(32 - r.len())..32].clone_from_slice(&r);
+        bytes[32 + (32 - s.len())..].clone_from_slice(&s);
+
+        let signature = Signature {
+            public_key: self.der_encoded_public_key.clone(),
+            signature: bytes.to_vec(), //Signature bytes
+        };
+
+        Ok(signature)
     }
 }

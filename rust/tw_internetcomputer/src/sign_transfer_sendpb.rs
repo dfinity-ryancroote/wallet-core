@@ -23,6 +23,8 @@ use std::{
     time::SystemTime,
 };
 
+use crate::sign::transfer;
+
 pub const DOMAIN_IC_REQUEST: &[u8; 11] = b"\x0Aic-request";
 pub const IC_URL: &str = "https://ic0.app";
 pub const LEDGER_CANISTER: &str = "ryjl3-tyaaa-aaaaa-aaaba-cai";
@@ -240,13 +242,14 @@ mod tests {
     use ic_agent::{agent::EnvelopeContent, identity::Secp256k1Identity, Identity};
 
     use candid::Principal;
+    use ic_certification::Label;
     use ic_ledger_types::Subaccount;
     use k256::{
         ecdsa, pkcs8,
         pkcs8::{Document, EncodePublicKey},
         PublicKey, SecretKey,
     };
-    use std::time::Duration;
+    use std::{ops::Add, time::Duration};
 
     pub const IC_URL: &str = "https://ic0.app";
     pub const LEDGER_CANISTER: &str = "ryjl3-tyaaa-aaaaa-aaaba-cai";
@@ -336,10 +339,7 @@ oUQDQgAEPas6Iag4TUx+Uop+3NhE6s3FlayFtbwdhRVjvOar0kPTfE/N8N6btRnd
         let result2 = sign_secp256k1(request_id_signable.as_slice(), secret_key.as_slice())?;
         assert_eq!(&result1[..], &result2[..]);
 
-        let paths: Vec<Vec<Vec<u8>>> = vec![vec![
-            "request_status".as_bytes().to_vec(),
-            request_id.0.as_slice().to_vec(),
-        ]];
+        let paths: Vec<Vec<Label>> = vec![vec!["request_status".into(), request_id.0.into()]];
         let read_state = EnvelopeContent::ReadState {
             ingress_expiry: 0,
             sender,
@@ -380,18 +380,30 @@ oUQDQgAEPas6Iag4TUx+Uop+3NhE6s3FlayFtbwdhRVjvOar0kPTfE/N8N6btRnd
         )?;
         let to_subaccount = Subaccount([0; 32]);
 
-        let transfer: String = sign_transfer(
+        let signed_transfer: String = sign_transfer(
             0,
             100000000,
             10000,
             from_subaccount,
             from_principal,
-            to_principal,
+            to_principal.clone(),
             to_subaccount,
-            secret_key,
+            secret_key.clone(),
             ingress_expiry_duration,
         )?;
-        println!("{:?}", transfer);
+        println!("{:?}", signed_transfer);
+
+        let k = SecretKey::from_sec1_pem(ECDSA_SECP256K1).unwrap();
+        let i = crate::sign::identity::Identity::new(k).unwrap();
+        let to_account_identifier =
+            ic_ledger_types::AccountIdentifier::new(&to_principal, &DEFAULT_SUBACCOUNT);
+        let now = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .map_err(|_| "error generating timestamp".to_string())?
+            .as_secs();
+        let st = transfer(i, to_account_identifier, 100000000, 0, now as u64).unwrap();
+        println!("{:?}", st);
+
         Ok(())
     }
 }

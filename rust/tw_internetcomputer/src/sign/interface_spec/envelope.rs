@@ -1,4 +1,5 @@
 use candid::Principal;
+use ic_certification::Label;
 use serde::{Deserialize, Serialize};
 
 use super::request_id::{self, RequestId};
@@ -40,7 +41,7 @@ pub enum EnvelopeContent {
         /// The principal that is sending this request.
         sender: Principal,
         /// A list of paths within the state tree to fetch.
-        paths: Vec<Vec<Vec<u8>>>,
+        paths: Vec<Vec<Label>>,
     },
     /// An unreplicated call to a canister query method.
     Query {
