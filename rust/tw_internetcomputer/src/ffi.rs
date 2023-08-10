@@ -10,6 +10,7 @@ use ic_ledger_types::{Subaccount, DEFAULT_SUBACCOUNT};
 use tw_memory::ffi::{
     c_byte_array::{CByteArray, CByteArrayResult},
     c_byte_array_ref::CByteArrayRef,
+    c_result::CStrResult,
     c_result::ErrorCode,
 };
 
@@ -114,45 +115,13 @@ pub unsafe extern "C" fn tw_encode_textual_principal(
         .into_raw()
 }
 
-/// Encodes a principal byte array to an Internet Computer principal text.
-/// TODO
-/// TODO
-/// \return TODO
-#[no_mangle]
-pub unsafe extern "C" fn tw_sign(
-    from_sub_account_bytes: *const u8,
-    to_principal: *const c_char,
-    to_sub_account_bytes: *const u8,
+pub unsafe extern "C" fn tw_internetcomputer_sign_transfer(
+    privkey: *const u8,
+    privkey_len: usize,
+    to_account_identifier: *const c_char,
     amount: u64,
-    fee: u64,
     memo: u64,
-    created_at_time: u64,
-) -> CByteArrayResult {
-    let from_sub_account =
-        match CByteArrayRef::new(from_sub_account_bytes, SUB_ACCOUNT_SIZE_BYTES).as_slice() {
-            Some(slice) => match slice.try_into() {
-                Ok(value) => Subaccount(value),
-                Err(_) => return CByteArrayResult::error(SIGN_ERROR_INVALID_TO_SUB_ACCOUNT),
-            },
-            None => return CByteArrayResult::error(SIGN_ERROR_INVALID_TO_SUB_ACCOUNT),
-        };
-
-    let to_principal = match CStr::from_ptr(to_principal).to_str() {
-        Ok(principal_text) => match Principal::from_text(principal_text) {
-            Ok(principal) => principal,
-            Err(_) => return CByteArrayResult::error(SIGN_ERROR_INVALID_FROM_PRINCIPAL),
-        },
-        Err(_) => return CByteArrayResult::error(SIGN_ERROR_INVALID_FROM_PRINCIPAL),
-    };
-
-    let to_sub_account =
-        match CByteArrayRef::new(to_sub_account_bytes, SUB_ACCOUNT_SIZE_BYTES).as_slice() {
-            Some(slice) => match slice.try_into() {
-                Ok(value) => Subaccount(value),
-                Err(_) => return CByteArrayResult::error(SIGN_ERROR_INVALID_TO_SUB_ACCOUNT),
-            },
-            None => DEFAULT_SUBACCOUNT,
-        };
-
-    CByteArrayResult::ok(CByteArray::new(vec![]))
+    current_timestamp_secs: u64,
+) -> CStrResult {
+    todo!()
 }

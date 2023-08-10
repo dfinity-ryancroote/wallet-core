@@ -1,5 +1,5 @@
-pub mod identity;
-pub mod interface_spec;
+mod identity;
+mod interface_spec;
 mod proto;
 mod rosetta;
 mod transfer;

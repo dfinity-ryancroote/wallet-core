@@ -1,4 +1,4 @@
-use std::{ops::Add, time::Duration};
+use std::time::Duration;
 
 use ic_ledger_types::{AccountIdentifier, Memo, Timestamp, Tokens};
 use tw_encoding::hex;
@@ -7,14 +7,16 @@ use super::{
     identity::Identity,
     interface_spec::{
         envelope::{Envelope, EnvelopeContent},
+        get_ingress_expiry,
         request_id::{self, RequestId},
     },
     proto, rosetta,
 };
 
+/// The endpoint on the ledger canister that is used to make transfers.
 const METHOD_NAME: &str = "send_pb";
 
-// The fee for a transfer is the always 10_000 e8s.
+/// The fee for a transfer is the always 10_000 e8s.
 const FEE: Tokens = Tokens::from_e8s(10_000);
 
 #[derive(Clone, Debug)]
@@ -33,29 +35,26 @@ pub fn transfer(
     memo: u64,
     current_timestamp_secs: u64,
 ) -> Result<String, String> {
-    // Scale the current timestamp to to nanoseconds and add 60 seconds to account for possible drift.
-    let current_timestamp_nanos = Duration::from_secs(current_timestamp_secs)
-        .add(Duration::from_secs(60))
-        .as_nanos() as u64;
+    let current_timestamp_duration = Duration::from_secs(current_timestamp_secs);
+    let ingress_expiry = get_ingress_expiry(current_timestamp_duration);
+    let timestamp_nanos = current_timestamp_duration.as_nanos() as u64;
 
+    // Build the send arguments and then serialize to proto.
     let args = SendArgs {
         memo: Memo(memo),
         amount: Tokens::from_e8s(amount),
         fee: FEE,
         to: to_account_identifier,
-        created_at_time: Some(Timestamp {
-            timestamp_nanos: current_timestamp_nanos,
-        }),
+        created_at_time: Some(Timestamp { timestamp_nanos }),
     };
     let arg = proto::into_bytes(args)?;
 
     // Create the update envelope.
-    let update_envelope = create_update_envelope(&identity, arg, current_timestamp_nanos)?;
+    let update_envelope = create_update_envelope(&identity, arg, ingress_expiry)?;
     let request_id = update_envelope.content.to_request_id();
 
     // Create the read state envelope.
-    let read_state_envelope =
-        create_read_state_envelope(&identity, request_id, current_timestamp_nanos)?;
+    let read_state_envelope = create_read_state_envelope(&identity, request_id, ingress_expiry)?;
 
     // Create a new EnvelopePair with the update call and read_state envelopes.
     let envelope_pair = rosetta::EnvelopePair::new(update_envelope, read_state_envelope);
@@ -124,55 +123,106 @@ fn create_read_state_envelope(
     Ok(env)
 }
 
-/*
-    pub const IC_URL: &str = "https://ic0.app";
-    pub const LEDGER_CANISTER: &str = "ryjl3-tyaaa-aaaaa-aaaba-cai";
-    pub const METHOD_NAME: &str = "send_pb";
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    use candid::Principal;
+    use ic_agent::identity::{Identity as IcIdentity, Secp256k1Identity};
+    use ic_ledger_types::DEFAULT_SUBACCOUNT;
+    use k256::SecretKey;
+
     pub const ECDSA_SECP256K1: &str = "-----BEGIN EC PRIVATE KEY-----
 MHQCAQEEICJxApEbuZznKFpV+VKACRK30i6+7u5Z13/DOl18cIC+oAcGBSuBBAAK
 oUQDQgAEPas6Iag4TUx+Uop+3NhE6s3FlayFtbwdhRVjvOar0kPTfE/N8N6btRnd
 74ly5xXEBNSXiENyxhEuzOZrIWMCNQ==
 -----END EC PRIVATE KEY-----";
 
-#[test]
-pub fn test_call_sign() -> Result<(), String> {
-    let ingress_expiry_duration = Duration::from_secs(1 * 60);
-    let canister_id = Principal::from_text(LEDGER_CANISTER).map_err(|e| e.to_string())?;
-    let from_subaccount = Subaccount([0; 32]);
-    let from_principal = get_principal_from_text(
-        "hpikg-6exdt-jn33w-ndty3-fc7jc-tl2lr-buih3-cs3y7-tftkp-sfp62-gqe",
-    )?;
-    let from = AccountIdentifier::new(&from_principal, &DEFAULT_SUBACCOUNT);
-    let secret_key = get_secp256k1_secret_key_bytes()?;
-    let to_principal = get_principal_from_text(
-        "t4u4z-y3dur-j63pk-nw4rv-yxdbt-agtt6-nygn7-ywh6y-zm2f4-sdzle-3qe",
-    )?;
-    let to_subaccount = Subaccount([0; 32]);
+    pub const SIGNED_TRANSACTION: &str = "81826b5452414e53414354494f4e81a266757064617465a367636f6e74656e74a66c726571756573745f747970656463616c6c6e696e67726573735f6578706972791b177a297215cfe8006673656e646572581d971cd2ddeecd1cf1b28be914d7a5c43441f6296f1f9966a7c8aff68d026b63616e69737465725f69644a000000000000000201016b6d6574686f645f6e616d656773656e645f70626361726758400a0012070a050880c2d72f1a0308904e2a220a20943d12e762f43806782f524b8f90297298a6d79e4749b41b585ec427409c826a3a0a088090caa5a3a78abd176d73656e6465725f7075626b65799858183018561830100607182a1886184818ce183d02010605182b188104000a0318420004183d18ab183a182118a81838184d184c187e1852188a187e18dc18d8184418ea18cd18c5189518ac188518b518bc181d188515186318bc18e618ab18d2184318d3187c184f18cd18f018de189b18b5181918dd18ef1889187218e71518c40418d4189718881843187218c611182e18cc18e6186b182118630218356a73656e6465725f736967984018d8189d18ee188a1118a81858184018da188d188c18b800184c18f611182718ea18931899186f183318c518711848186718841718351825181e187c18710018a21871183618f6184b18cd18e618e418ea182c18d118c91857188d140c18b4182a188018c51871189f1418b518cf182e18b618a418fd18a36a726561645f7374617465a367636f6e74656e74a46c726571756573745f747970656a726561645f73746174656e696e67726573735f6578706972791b177a297215cfe8006673656e646572581d971cd2ddeecd1cf1b28be914d7a5c43441f6296f1f9966a7c8aff68d0265706174687381824e726571756573745f7374617475735820b20f43257a5e87542693561e20a6076d515395e49623fcecd6c5b5640b8db8c36d73656e6465725f7075626b65799858183018561830100607182a1886184818ce183d02010605182b188104000a0318420004183d18ab183a182118a81838184d184c187e1852188a187e18dc18d8184418ea18cd18c5189518ac188518b518bc181d188515186318bc18e618ab18d2184318d3187c184f18cd18f018de189b18b5181918dd18ef1889187218e71518c40418d4189718881843187218c611182e18cc18e6186b182118630218356a73656e6465725f736967984018a8189b12186d18a4188d18fb18f71869187918f70e1825181d185a0318440b18e0186e1820183f1834188016186818dd183b18d518de18941849187e1882186e18591861187218ac0a18de18df1858183718b6182818930c18431864183718f60a18ef1824185e18ed184e18841839185718d5091888";
 
-    let signed_transfer: String = sign_transfer(
-        0,
-        100000000,
-        10000,
-        from_subaccount,
-        from_principal,
-        to_principal.clone(),
-        to_subaccount,
-        secret_key.clone(),
-        ingress_expiry_duration,
-    )?;
-    println!("{:?}", signed_transfer);
+    #[test]
+    pub fn envelope_creation() {
+        let secret_key = SecretKey::from_sec1_pem(ECDSA_SECP256K1).unwrap();
 
-    let k = SecretKey::from_sec1_pem(ECDSA_SECP256K1).unwrap();
-    let i = crate::sign::identity::Identity::new(k).unwrap();
-    let to_account_identifier =
-        ic_ledger_types::AccountIdentifier::new(&to_principal, &DEFAULT_SUBACCOUNT);
-    let now = SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .map_err(|_| "error generating timestamp".to_string())?
-        .as_secs();
-    let st = transfer(i, to_account_identifier, 100000000, 0, now as u64).unwrap();
-    println!("{:?}", st);
+        let local_identity = Identity::new(secret_key.clone()).unwrap();
+        let ic_agent_identity = Secp256k1Identity::from_private_key(secret_key);
 
-    Ok(())
+        let to_account_identifier = AccountIdentifier::new(
+            &Principal::from_text(
+                "t4u4z-y3dur-j63pk-nw4rv-yxdbt-agtt6-nygn7-ywh6y-zm2f4-sdzle-3qe",
+            )
+            .unwrap(),
+            &DEFAULT_SUBACCOUNT,
+        );
+
+        let args = SendArgs {
+            memo: Memo(0),
+            amount: Tokens::from_e8s(100_000_000),
+            fee: FEE,
+            to: to_account_identifier,
+            created_at_time: Some(Timestamp { timestamp_nanos: 0 }),
+        };
+        let arg = proto::into_bytes(args).unwrap();
+
+        let update_envelope = create_update_envelope(&local_identity, arg.clone(), 60).unwrap();
+
+        // Compare the ic-agent's implementation against the crate's implementation to ensure correctness.
+        let ic_envelope_content = ic_agent::agent::EnvelopeContent::Call {
+            nonce: None,
+            ingress_expiry: 60,
+            sender: ic_agent_identity.sender().unwrap(),
+            canister_id: ic_ledger_types::MAINNET_LEDGER_CANISTER_ID,
+            method_name: METHOD_NAME.to_string(),
+            arg,
+        };
+
+        let ic_update_signature = ic_agent_identity.sign(&ic_envelope_content).unwrap();
+
+        assert_eq!(
+            update_envelope.sender_pubkey,
+            ic_update_signature.public_key
+        );
+        assert_eq!(update_envelope.sender_sig, ic_update_signature.signature);
+
+        // Compare the ic-agent's read_state implementation againt this crate's implementation to ensure correctness.
+        let update_request_id = ic_envelope_content.to_request_id();
+        let ic_read_state_content = ic_agent::agent::EnvelopeContent::ReadState {
+            ingress_expiry: 0,
+            sender: ic_agent_identity.sender().unwrap(),
+            paths: vec![vec![
+                "request_status".into(),
+                update_request_id.as_slice().into(),
+            ]],
+        };
+
+        let update_request_id = update_envelope.content.to_request_id();
+        let read_state_envelope =
+            create_read_state_envelope(&local_identity, update_request_id, 0).unwrap();
+
+        let ic_read_state_signature = ic_agent_identity.sign(&ic_read_state_content).unwrap();
+        assert_eq!(
+            read_state_envelope.sender_pubkey,
+            ic_read_state_signature.public_key
+        );
+        assert_eq!(
+            read_state_envelope.sender_sig,
+            ic_read_state_signature.signature
+        );
+    }
+
+    #[test]
+    fn transfer_signature() {
+        let secret_key = SecretKey::from_sec1_pem(ECDSA_SECP256K1).unwrap();
+        let identity = crate::sign::identity::Identity::new(secret_key).unwrap();
+        let to_account_identifier = AccountIdentifier::new(
+            &Principal::from_text(
+                "t4u4z-y3dur-j63pk-nw4rv-yxdbt-agtt6-nygn7-ywh6y-zm2f4-sdzle-3qe",
+            )
+            .unwrap(),
+            &DEFAULT_SUBACCOUNT,
+        );
+        let signed_transaction =
+            transfer(identity, to_account_identifier, 100000000, 0, 1_691_709_940).unwrap();
+        assert_eq!(signed_transaction, SIGNED_TRANSACTION);
+    }
 }
-*/

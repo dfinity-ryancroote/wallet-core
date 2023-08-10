@@ -19,13 +19,17 @@ message Transaction {
     }
 
 
+    // Rename to ICP_Ledger_Send_Args
     // ICRC1 Ledger transfer arguments
     message ICRC1_Transfer_Args {
         bytes from_subaccount = 1;
+        // TODO: change to string?
         Account to_account = 2;
         uint64 amount = 3;
+        // TODO: fee is not needed
         uint64 fee = 4;
         uint64 memo = 5;
+        // TODO: change field name to current_timestamp_secs
         uint64 created_at_time = 6;
     }
 
