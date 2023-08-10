@@ -1,5 +1,6 @@
 use crate::rosetta::{EnvelopePair, Request, RequestEnvelope, RequestType, SignedTransaction};
 use crate::send_request_proto;
+use crate::request_id;
 use candid::{CandidType, Principal};
 use ic_agent::Identity;
 use ic_agent::{
@@ -34,6 +35,13 @@ pub enum AccountIdParseError {
     InvalidChecksum(ChecksumError),
     InvalidLength(Vec<u8>),
 }
+
+/// Type alias for a sha256 result (ie. a u256).
+type Sha256Hash = [u8; 32];
+
+/// A Request ID.
+#[derive(Clone, Copy, Debug, PartialOrd, Ord, PartialEq, Eq, Deserialize, Serialize)]
+pub struct RequestId(Sha256Hash);
 
 #[derive(Serialize, Deserialize, CandidType, Clone, Hash, Debug, PartialEq, Eq)]
 pub struct SendArgs {
@@ -287,13 +295,15 @@ oUQDQgAEPas6Iag4TUx+Uop+3NhE6s3FlayFtbwdhRVjvOar0kPTfE/N8N6btRnd
         let data: [u8; 16] = [1; 16];
         let identity = Secp256k1Identity::from_pem(ECDSA_SECP256K1.as_bytes())
             .map_err(|_| "Error reading pem bytes")?;
-
+        let canister_id = "bkyz2-fmaaa-aaaaa-qaaaq-cai".parse().unwrap();
+        let method_name = "greet".to_string();
+        let sender = identity.sender().unwrap();
         let message = EnvelopeContent::Call {
             nonce: None,
             ingress_expiry: 0,
-            sender: identity.sender().unwrap(),
-            canister_id: "bkyz2-fmaaa-aaaaa-qaaaq-cai".parse().unwrap(),
-            method_name: "greet".to_string(),
+            sender,
+            canister_id,
+            method_name: method_name.clone(),
             arg: vec![1, 1, 1, 1, 1, 1, 1, 1],
         };
         let result1 = identity
@@ -301,10 +311,42 @@ oUQDQgAEPas6Iag4TUx+Uop+3NhE6s3FlayFtbwdhRVjvOar0kPTfE/N8N6btRnd
             .signature
             .ok_or("Invalid signature in result1")?;
 
-        let content = message.to_request_id().signable();
+        let request_id = request_id::representation_indepent_hash_call_or_query(
+            request_id::CallOrQuery::Call,
+            canister_id.as_slice().to_vec(),
+            method_name.as_str(),
+            vec![1, 1, 1, 1, 1, 1, 1, 1],
+            0,
+            sender.as_slice().to_vec(),
+            None, );
+
+        let request_id_signable = request_id::make_sig_data(
+            &request_id,
+        );
+        assert_eq!(&request_id_signable[..], &message.to_request_id().signable()[..]);
+
         let secret_key = get_secp256k1_secret_key_bytes()?;
-        let result2 = sign_secp256k1(content.as_slice(), secret_key.as_slice())?;
+
+        let result2 = sign_secp256k1(request_id_signable.as_slice(), secret_key.as_slice())?;
         assert_eq!(&result1[..], &result2[..]);
+
+        let paths: Vec<Vec<Vec<u8>>> = vec![vec!["request_status".as_bytes().to_vec(), request_id.as_slice().to_vec()]];
+        let read_state = EnvelopeContent::ReadState {
+            ingress_expiry: 0,
+            sender,
+            paths: vec![vec!["request_status".into(), request_id.as_slice().into()]],
+        };
+
+        let read_state_signable = request_id::make_sig_data(&request_id::representation_independent_hash_read_state(
+            0,
+            paths.as_slice(),
+            sender.as_slice().to_vec(),
+            None,
+        ));
+
+        assert_eq!(&read_state_signable[..], &read_state.to_request_id().signable()[..]);
+
+
         Ok(())
     }
 
