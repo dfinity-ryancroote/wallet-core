@@ -1,6 +1,7 @@
 use candid::Principal;
 
-use crate::types::account_identifier::AccountIdentifier;
+use ic_ledger_types::{AccountIdentifier, DEFAULT_SUBACCOUNT};
+use pkcs8::EncodePublicKey;
 
 #[derive(Debug, PartialEq)]
 pub enum EncodePrincipalError {
@@ -15,17 +16,10 @@ const OID: pkcs8::ObjectIdentifier = pkcs8::ObjectIdentifier::new_unwrap("1.3.13
 fn encode_public_key_to_der(
     public_key_bytes: &[u8],
 ) -> Result<der::Document, EncodePrincipalError> {
-    let subject_public_key = der::asn1::BitStringRef::new(0, public_key_bytes)
-        .map_err(|_| EncodePrincipalError::FailedDerEncode)?;
-    pkcs8::SubjectPublicKeyInfo {
-        algorithm: pkcs8::spki::AlgorithmIdentifier {
-            oid: ALGORITHM_OID,
-            parameters: Some(OID),
-        },
-        subject_public_key,
-    }
-    .try_into()
-    .map_err(|_| EncodePrincipalError::FailedDerEncode)
+    let t = k256::PublicKey::from_sec1_bytes(public_key_bytes)
+        .map_err(|_| EncodePrincipalError::InvalidPublicKey)?;
+    t.to_public_key_der()
+        .map_err(|_| EncodePrincipalError::FailedDerEncode)
 }
 
 pub fn encode_public_key_to_principal(
@@ -42,6 +36,6 @@ pub fn encode_textual_principal(principal_bytes: &[u8]) -> String {
 
 pub fn principal_to_account_identifier(principal_bytes: &[u8]) -> String {
     let principal = Principal::from_slice(principal_bytes);
-    let account_id = AccountIdentifier::new(principal);
+    let account_id = AccountIdentifier::new(&principal, &DEFAULT_SUBACCOUNT);
     account_id.to_hex()
 }

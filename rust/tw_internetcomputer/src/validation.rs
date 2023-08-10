@@ -1,7 +1,5 @@
-use std::str::FromStr;
-
-use crate::types::account_identifier::AccountIdentifier;
+use ic_ledger_types::AccountIdentifier;
 
 pub fn is_address_valid(address: &str) -> bool {
-    AccountIdentifier::from_str(address).is_ok()
+    AccountIdentifier::from_hex(address).is_ok()
 }

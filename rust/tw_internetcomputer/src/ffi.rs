@@ -5,17 +5,15 @@
 // file LICENSE at the root of the source code distribution tree.
 
 use std::ffi::{c_char, CStr, CString};
-use std::io::read_to_string;
 
+use ic_ledger_types::{Subaccount, DEFAULT_SUBACCOUNT};
 use tw_memory::ffi::{
     c_byte_array::{CByteArray, CByteArrayResult},
     c_byte_array_ref::CByteArrayRef,
     c_result::ErrorCode,
 };
 
-use crate::types::account_identifier::Subaccount;
 use crate::{encode, validation};
-//use candid::types::TypeInner::Principal;
 use candid::Principal;
 
 const SUB_ACCOUNT_SIZE_BYTES: usize = 32;
@@ -153,7 +151,7 @@ pub unsafe extern "C" fn tw_sign(
                 Ok(value) => Subaccount(value),
                 Err(_) => return CByteArrayResult::error(SIGN_ERROR_INVALID_TO_SUB_ACCOUNT),
             },
-            None => Subaccount([0; 32]),
+            None => DEFAULT_SUBACCOUNT,
         };
 
     CByteArrayResult::ok(CByteArray::new(vec![]))

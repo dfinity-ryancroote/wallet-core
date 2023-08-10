@@ -10,5 +10,4 @@ mod rosetta;
 mod send_request_proto;
 mod sign;
 mod sign_transfer_sendpb;
-pub mod types;
 pub mod validation;
