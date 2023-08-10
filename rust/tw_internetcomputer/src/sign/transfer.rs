@@ -5,8 +5,6 @@ use ic_ledger_types::{AccountIdentifier, Memo, Subaccount, Timestamp, Tokens};
 use serde::{Deserialize, Serialize};
 use tw_encoding::hex;
 
-use crate::sign_transfer_sendpb::METHOD_NAME;
-
 use super::{
     identity::Identity,
     interface_spec::{
@@ -15,6 +13,8 @@ use super::{
     },
     proto, rosetta,
 };
+
+const METHOD_NAME: &str = "send_pb";
 
 // The fee for a transfer is the always 10_000 e8s.
 const FEE: Tokens = Tokens::from_e8s(10_000);
@@ -36,7 +36,7 @@ pub fn transfer(
     memo: u64,
     current_timestamp_secs: u64,
 ) -> Result<String, String> {
-    // Scale the current timestamp to to nanoseconds and add 60 seconds to account for drift.
+    // Scale the current timestamp to to nanoseconds and add 60 seconds to account for possible drift.
     let current_timestamp_nanos = Duration::from_secs(current_timestamp_secs)
         .add(Duration::from_secs(60))
         .as_nanos() as u64;
@@ -127,3 +127,56 @@ fn create_read_state_envelope(
     };
     Ok(env)
 }
+
+/*
+    pub const IC_URL: &str = "https://ic0.app";
+    pub const LEDGER_CANISTER: &str = "ryjl3-tyaaa-aaaaa-aaaba-cai";
+    pub const METHOD_NAME: &str = "send_pb";
+    pub const ECDSA_SECP256K1: &str = "-----BEGIN EC PRIVATE KEY-----
+MHQCAQEEICJxApEbuZznKFpV+VKACRK30i6+7u5Z13/DOl18cIC+oAcGBSuBBAAK
+oUQDQgAEPas6Iag4TUx+Uop+3NhE6s3FlayFtbwdhRVjvOar0kPTfE/N8N6btRnd
+74ly5xXEBNSXiENyxhEuzOZrIWMCNQ==
+-----END EC PRIVATE KEY-----";
+
+#[test]
+pub fn test_call_sign() -> Result<(), String> {
+    let ingress_expiry_duration = Duration::from_secs(1 * 60);
+    let canister_id = Principal::from_text(LEDGER_CANISTER).map_err(|e| e.to_string())?;
+    let from_subaccount = Subaccount([0; 32]);
+    let from_principal = get_principal_from_text(
+        "hpikg-6exdt-jn33w-ndty3-fc7jc-tl2lr-buih3-cs3y7-tftkp-sfp62-gqe",
+    )?;
+    let from = AccountIdentifier::new(&from_principal, &DEFAULT_SUBACCOUNT);
+    let secret_key = get_secp256k1_secret_key_bytes()?;
+    let to_principal = get_principal_from_text(
+        "t4u4z-y3dur-j63pk-nw4rv-yxdbt-agtt6-nygn7-ywh6y-zm2f4-sdzle-3qe",
+    )?;
+    let to_subaccount = Subaccount([0; 32]);
+
+    let signed_transfer: String = sign_transfer(
+        0,
+        100000000,
+        10000,
+        from_subaccount,
+        from_principal,
+        to_principal.clone(),
+        to_subaccount,
+        secret_key.clone(),
+        ingress_expiry_duration,
+    )?;
+    println!("{:?}", signed_transfer);
+
+    let k = SecretKey::from_sec1_pem(ECDSA_SECP256K1).unwrap();
+    let i = crate::sign::identity::Identity::new(k).unwrap();
+    let to_account_identifier =
+        ic_ledger_types::AccountIdentifier::new(&to_principal, &DEFAULT_SUBACCOUNT);
+    let now = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .map_err(|_| "error generating timestamp".to_string())?
+        .as_secs();
+    let st = transfer(i, to_account_identifier, 100000000, 0, now as u64).unwrap();
+    println!("{:?}", st);
+
+    Ok(())
+}
+*/
