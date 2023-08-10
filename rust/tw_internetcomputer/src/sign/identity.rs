@@ -33,7 +33,7 @@ impl Identity {
         Principal::self_authenticating(&self.der_encoded_public_key)
     }
 
-    pub fn sign(&self) -> Signature {
+    pub fn sign(&self, content: Vec<u8>) -> Result<Signature, String> {
         todo!()
     }
 }

@@ -3,13 +3,17 @@ use std::time::Duration;
 use candid::CandidType;
 use ic_ledger_types::{AccountIdentifier, Memo, Subaccount, Timestamp, Tokens};
 use serde::{Deserialize, Serialize};
+use tw_encoding::hex;
 
 use crate::sign_transfer_sendpb::METHOD_NAME;
 
 use super::{
     identity::Identity,
-    interface_spec::envelope::{Envelope, EnvelopeContent},
-    proto,
+    interface_spec::{
+        envelope::{Envelope, EnvelopeContent},
+        request_id::{self, RequestId},
+    },
+    proto, rosetta,
 };
 
 // The fee for a transfer is the always 10_000 e8s.
@@ -27,9 +31,9 @@ pub struct SendArgs {
 
 pub fn transfer(
     identity: Identity,
+    to_account_identifier: AccountIdentifier,
     amount: u64,
     memo: u64,
-    to_account_identifier: AccountIdentifier,
     current_timestamp_secs: u64,
 ) -> Result<String, String> {
     let current_timestamp_nanos = Duration::from_secs(current_timestamp_secs).as_nanos() as u64;
@@ -47,17 +51,32 @@ pub fn transfer(
     let arg = proto::into_bytes(args)?;
 
     // Create the update envelope.
-    create_update_envelope(&identity, arg, current_timestamp_nanos);
+    let update_envelope = create_update_envelope(&identity, arg, current_timestamp_nanos)?;
+    let request_id = update_envelope.content.to_request_id();
 
     // Create the read state envelope.
+    let read_state_envelope =
+        create_read_state_envelope(&identity, request_id, current_timestamp_nanos)?;
 
     // Create a new EnvelopePair with the update call and read_state envelopes.
+    let envelope_pair = rosetta::EnvelopePair::new(update_envelope, read_state_envelope);
+
     // Create a signed transaction containing the envelope pair.
+    let request: rosetta::Request = (rosetta::RequestType::Send, vec![envelope_pair]);
+    let signed_transaction: rosetta::SignedTransaction = vec![request];
     // Encode the signed transaction.
-    Ok(String::from(""))
+    let cbor_encoded_signed_transaction = serde_cbor::to_vec(&signed_transaction)
+        .map_err(|e| format!("Failed to serialize signed transaction: {}", e))?;
+    let hex_encoded_cbor = hex::encode(&cbor_encoded_signed_transaction, false);
+
+    Ok(hex_encoded_cbor)
 }
 
-fn create_update_envelope(identity: &Identity, arg: Vec<u8>, ingress_expiry: u64) -> Envelope {
+fn create_update_envelope(
+    identity: &Identity,
+    arg: Vec<u8>,
+    ingress_expiry: u64,
+) -> Result<Envelope, String> {
     let sender = identity.sender();
     let content = EnvelopeContent::Call {
         nonce: None, //TODO: do we need the nonce?
@@ -68,21 +87,40 @@ fn create_update_envelope(identity: &Identity, arg: Vec<u8>, ingress_expiry: u64
         arg,
     };
 
-    let signature = identity.sign();
+    let request_id = content.to_request_id();
+    let signature = identity.sign(request_id::make_sig_data(&request_id))?;
 
-    Envelope {
+    let env = Envelope {
         content,
         sender_pubkey: Some(signature.public_key),
         sender_sig: Some(signature.signature),
-    }
+    };
+    Ok(env)
 }
 
-fn create_read_state_envelope() -> Envelope {
-    Envelope {
-        content: todo!(),
-        sender_pubkey: todo!(),
-        sender_sig: todo!(),
-    }
-}
+fn create_read_state_envelope(
+    identity: &Identity,
+    request_id: RequestId,
+    ingress_expiry: u64,
+) -> Result<Envelope, String> {
+    let sender = identity.sender();
 
-fn sign_envelope_content() {}
+    let content = EnvelopeContent::ReadState {
+        ingress_expiry,
+        sender,
+        paths: vec![vec![
+            "request_status".into(),
+            request_id.0.as_slice().into(),
+        ]],
+    };
+
+    let request_id = content.to_request_id();
+    let signature = identity.sign(request_id::make_sig_data(&request_id))?;
+
+    let env = Envelope {
+        content,
+        sender_pubkey: Some(signature.public_key),
+        sender_sig: Some(signature.signature),
+    };
+    Ok(env)
+}
