@@ -4,7 +4,7 @@ use ic_ledger_types::{AccountIdentifier, Memo, Timestamp, Tokens};
 use tw_encoding::hex;
 
 use super::{
-    identity::Identity,
+    identity::{Identity, IdentityError},
     interface_spec::{
         envelope::{Envelope, EnvelopeContent},
         get_ingress_expiry,
@@ -18,6 +18,13 @@ const METHOD_NAME: &str = "send_pb";
 
 /// The fee for a transfer is the always 10_000 e8s.
 const FEE: Tokens = Tokens::from_e8s(10_000);
+
+#[derive(Debug)]
+pub enum SignTransferError {
+    Identity(IdentityError),
+    EncodingArgsFailed,
+    EncodingSignedTransactionFailed,
+}
 
 #[derive(Clone, Debug)]
 pub struct SendArgs {
@@ -34,7 +41,7 @@ pub fn transfer(
     amount: u64,
     memo: u64,
     current_timestamp_secs: u64,
-) -> Result<String, String> {
+) -> Result<String, SignTransferError> {
     let current_timestamp_duration = Duration::from_secs(current_timestamp_secs);
     let ingress_expiry = get_ingress_expiry(current_timestamp_duration);
     let timestamp_nanos = current_timestamp_duration.as_nanos() as u64;
@@ -47,7 +54,7 @@ pub fn transfer(
         to: to_account_identifier,
         created_at_time: Some(Timestamp { timestamp_nanos }),
     };
-    let arg = proto::into_bytes(args)?;
+    let arg = proto::into_bytes(args).map_err(|_| SignTransferError::EncodingArgsFailed)?;
 
     // Create the update envelope.
     let update_envelope = create_update_envelope(&identity, arg, ingress_expiry)?;
@@ -64,7 +71,7 @@ pub fn transfer(
     let signed_transaction: rosetta::SignedTransaction = vec![request];
     // Encode the signed transaction.
     let cbor_encoded_signed_transaction = serde_cbor::to_vec(&signed_transaction)
-        .map_err(|e| format!("Failed to serialize signed transaction: {}", e))?;
+        .map_err(|_| SignTransferError::EncodingSignedTransactionFailed)?;
     let hex_encoded_cbor = hex::encode(&cbor_encoded_signed_transaction, false);
 
     Ok(hex_encoded_cbor)
@@ -74,7 +81,7 @@ fn create_update_envelope(
     identity: &Identity,
     arg: Vec<u8>,
     ingress_expiry: u64,
-) -> Result<Envelope, String> {
+) -> Result<Envelope, SignTransferError> {
     let sender = identity.sender();
     let content = EnvelopeContent::Call {
         nonce: None, //TODO: do we need the nonce?
@@ -86,7 +93,9 @@ fn create_update_envelope(
     };
 
     let request_id = content.to_request_id();
-    let signature = identity.sign(request_id::make_sig_data(&request_id))?;
+    let signature = identity
+        .sign(request_id::make_sig_data(&request_id))
+        .map_err(SignTransferError::Identity)?;
 
     let env = Envelope {
         content,
@@ -100,7 +109,7 @@ fn create_read_state_envelope(
     identity: &Identity,
     request_id: RequestId,
     ingress_expiry: u64,
-) -> Result<Envelope, String> {
+) -> Result<Envelope, SignTransferError> {
     let sender = identity.sender();
 
     let content = EnvelopeContent::ReadState {
@@ -113,7 +122,9 @@ fn create_read_state_envelope(
     };
 
     let request_id = content.to_request_id();
-    let signature = identity.sign(request_id::make_sig_data(&request_id))?;
+    let signature = identity
+        .sign(request_id::make_sig_data(&request_id))
+        .map_err(SignTransferError::Identity)?;
 
     let env = Envelope {
         content,

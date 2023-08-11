@@ -6,7 +6,8 @@
 
 use std::ffi::{c_char, CStr, CString};
 
-use ic_ledger_types::{Subaccount, DEFAULT_SUBACCOUNT};
+use ic_ledger_types::{AccountIdentifier, Subaccount, DEFAULT_SUBACCOUNT};
+use k256::SecretKey;
 use tw_memory::ffi::{
     c_byte_array::{CByteArray, CByteArrayResult},
     c_byte_array_ref::CByteArrayRef,
@@ -14,7 +15,11 @@ use tw_memory::ffi::{
     c_result::ErrorCode,
 };
 
-use crate::{encode, validation};
+use crate::{
+    encode,
+    sign::{self, Identity, SignTransferError},
+    validation,
+};
 use candid::Principal;
 
 const SUB_ACCOUNT_SIZE_BYTES: usize = 32;
@@ -115,13 +120,81 @@ pub unsafe extern "C" fn tw_encode_textual_principal(
         .into_raw()
 }
 
+#[repr(C)]
+pub enum CSignTranserErrorCode {
+    Ok = 0,
+    InvalidPrivateKey = 1,
+    FailedDerEncode = 2,
+    InvalidToAccountIdentifier = 3,
+    FailedEncodingSendArgs = 4,
+    FailedEncodingSignedTransaction = 5,
+    MalformedSignature = 6,
+    FailedSignature = 7,
+}
+
+impl From<SignTransferError> for CSignTranserErrorCode {
+    fn from(value: SignTransferError) -> Self {
+        match value {
+            SignTransferError::Identity(error) => match error {
+                sign::IdentityError::FailedPublicKeyDerEncoding => {
+                    CSignTranserErrorCode::FailedDerEncode
+                },
+                sign::IdentityError::FailedSignature(_) => CSignTranserErrorCode::FailedSignature,
+                sign::IdentityError::MalformedSignature => {
+                    CSignTranserErrorCode::MalformedSignature
+                },
+            },
+            SignTransferError::EncodingArgsFailed => CSignTranserErrorCode::FailedEncodingSendArgs,
+            SignTransferError::EncodingSignedTransactionFailed => {
+                CSignTranserErrorCode::FailedEncodingSignedTransaction
+            },
+        }
+    }
+}
+
+impl From<CSignTranserErrorCode> for ErrorCode {
+    fn from(value: CSignTranserErrorCode) -> Self {
+        value as ErrorCode
+    }
+}
+
 pub unsafe extern "C" fn tw_internetcomputer_sign_transfer(
-    privkey: *const u8,
+    privkey_bytes: *const u8,
     privkey_len: usize,
     to_account_identifier: *const c_char,
     amount: u64,
     memo: u64,
     current_timestamp_secs: u64,
 ) -> CStrResult {
-    todo!()
+    let secret_key_bytes = std::slice::from_raw_parts(privkey_bytes, privkey_len);
+    let Ok(secret_key) = SecretKey::from_slice(secret_key_bytes) else {
+        return CStrResult::error(CSignTranserErrorCode::InvalidPrivateKey);
+    };
+    let identity = match Identity::new(secret_key) {
+        Ok(identity) => identity,
+        Err(_) => return CStrResult::error(CSignTranserErrorCode::FailedDerEncode),
+    };
+    let Ok(textual_to_account_identitifer) = CStr::from_ptr(to_account_identifier).to_str() else {
+        return CStrResult::error(CSignTranserErrorCode::InvalidToAccountIdentifier);
+    };
+    let Ok(to_account_identifier) =
+        AccountIdentifier::from_hex(textual_to_account_identitifer) else {
+            return CStrResult::error(CSignTranserErrorCode::InvalidToAccountIdentifier);
+        };
+
+    let signed_transaction = match sign::transfer(
+        identity,
+        to_account_identifier,
+        amount,
+        memo,
+        current_timestamp_secs,
+    ) {
+        Ok(signed_transaction) => signed_transaction,
+        Err(error) => return CStrResult::error(CSignTranserErrorCode::from(error)),
+    };
+    let cstring_signed_tx = CString::new(signed_transaction)
+        .expect("failed to make c-string")
+        .into_raw();
+
+    CStrResult::ok(cstring_signed_tx)
 }
