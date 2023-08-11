@@ -6,7 +6,7 @@
 
 use std::ffi::{c_char, CStr, CString};
 
-use ic_ledger_types::{AccountIdentifier, Subaccount, DEFAULT_SUBACCOUNT};
+use ic_ledger_types::AccountIdentifier;
 use k256::SecretKey;
 use tw_memory::ffi::{
     c_byte_array::{CByteArray, CByteArrayResult},
@@ -20,15 +20,6 @@ use crate::{
     sign::{self, Identity, SignTransferError},
     validation,
 };
-use candid::Principal;
-
-const SUB_ACCOUNT_SIZE_BYTES: usize = 32;
-const MAX_PRINCIPAL_SIZE_BYTES: usize = 29;
-
-// Error Codes
-const SIGN_ERROR_INVALID_TO_SUB_ACCOUNT: i32 = 1001;
-const SIGN_ERROR_INVALID_FROM_PRINCIPAL: i32 = 1002;
-const SIGN_ERROR_INVALID_FROM_SUB_ACCOUNT: i32 = 1003;
 
 #[repr(C)]
 pub enum CEncodingCode {
