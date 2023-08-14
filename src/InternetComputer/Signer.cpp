@@ -46,7 +46,7 @@ Proto::SigningOutput Signer::signTransfer(const Data privateKey, const Proto::Tr
     return output;
 }
 
-Proto::SigningOutput handleSignTransferError(const TW::Rust::ErrorCode code) noexcept {
+Proto::SigningOutput Signer::handleSignTransferError(const TW::Rust::ErrorCode code) noexcept {
     auto output = Proto::SigningOutput();
     switch (code) {
     case 1:

@@ -23,9 +23,9 @@ public:
 
     /// Signs a Proto::SigningInput transaction
     static Proto::SigningOutput sign(const Proto::SigningInput& input) noexcept;
-    static Proto::SigningOutput signTransfer(const Data privateKey, const Proto::Transaction_Transfer& transfer) noexcept;
 
-private:
+    /// Handles signing a transfer operation.
+    static Proto::SigningOutput signTransfer(const Data privateKey, const Proto::Transaction_Transfer& transfer) noexcept;
     static Proto::SigningOutput handleSignTransferError(const TW::Rust::ErrorCode code) noexcept;
 };
 
