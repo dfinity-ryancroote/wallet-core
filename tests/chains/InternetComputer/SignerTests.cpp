@@ -18,25 +18,14 @@ namespace TW::InternetComputer::tests {
 
 TEST(InternetComputerSigner, Sign) {
     auto key = PrivateKey(parse_hex("227102911bb99ce7285a55f952800912b7d22ebeeeee59d77fc33a5d7c7080be"));
-    auto publicKey = key.getPublicKey(TWPublicKeyTypeED25519);
-    auto to_account_identifier = "943d12e762f43806782f524b8f90297298a6d79e4749b41b585ec427409c826a";
-    uint64_t amount = 100'000'000;
-    uint64_t memo = 0;
-    uint64_t currentTimestampSecs = 1'691'709'940;
+    auto input = Proto::SigningInput();
+    input.set_private_key(key.bytes.data(), key.bytes.size());
+    input.mutable_transaction()->mutable_transfer()->set_to_account_identifier("943d12e762f43806782f524b8f90297298a6d79e4749b41b585ec427409c826a");
+    input.mutable_transaction()->mutable_transfer()->set_amount(100'000'000);
+    input.mutable_transaction()->mutable_transfer()->set_memo(0);
+    input.mutable_transaction()->mutable_transfer()->set_current_timestamp_secs(1'691'709'940);
 
-    auto signingInput = Proto::SigningInput();
-    auto transaction = Proto::Transaction();
-    auto transfer = Proto::Transaction_Transfer();
-    transfer.set_to_account_identifier(to_account_identifier);
-    transfer.set_amount(amount);
-    transfer.set_memo(memo);
-    transfer.set_current_timestamp_secs(currentTimestampSecs);
-
-    transaction.set_allocated_transfer(&transfer);
-    signingInput.set_private_key(key.bytes.data(), key.bytes.size());
-    signingInput.set_allocated_transaction(&transaction);
-
-    auto output = Signer::sign(signingInput);
+    auto output = Signer::sign(input);
 
     const auto signed_transaction = output.signed_transaction();
     const auto hex_encoded = hex(signed_transaction);
