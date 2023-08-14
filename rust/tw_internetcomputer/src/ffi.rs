@@ -11,7 +11,6 @@ use k256::SecretKey;
 use tw_memory::ffi::{
     c_byte_array::{CByteArray, CByteArrayResult},
     c_byte_array_ref::CByteArrayRef,
-    c_result::CStrResult,
     c_result::ErrorCode,
 };
 
@@ -149,6 +148,7 @@ impl From<CSignTranserErrorCode> for ErrorCode {
     }
 }
 
+#[no_mangle]
 pub unsafe extern "C" fn tw_internetcomputer_sign_transfer(
     privkey_bytes: *const u8,
     privkey_len: usize,
@@ -156,36 +156,31 @@ pub unsafe extern "C" fn tw_internetcomputer_sign_transfer(
     amount: u64,
     memo: u64,
     current_timestamp_secs: u64,
-) -> CStrResult {
+) -> CByteArrayResult {
     let secret_key_bytes = std::slice::from_raw_parts(privkey_bytes, privkey_len);
     let Ok(secret_key) = SecretKey::from_slice(secret_key_bytes) else {
-        return CStrResult::error(CSignTranserErrorCode::InvalidPrivateKey);
+        return CByteArrayResult::error(CSignTranserErrorCode::InvalidPrivateKey);
     };
     let identity = match Identity::new(secret_key) {
         Ok(identity) => identity,
-        Err(_) => return CStrResult::error(CSignTranserErrorCode::FailedDerEncode),
+        Err(_) => return CByteArrayResult::error(CSignTranserErrorCode::FailedDerEncode),
     };
     let Ok(textual_to_account_identitifer) = CStr::from_ptr(to_account_identifier).to_str() else {
-        return CStrResult::error(CSignTranserErrorCode::InvalidToAccountIdentifier);
+        return CByteArrayResult::error(CSignTranserErrorCode::InvalidToAccountIdentifier);
     };
     let Ok(to_account_identifier) =
         AccountIdentifier::from_hex(textual_to_account_identitifer) else {
-            return CStrResult::error(CSignTranserErrorCode::InvalidToAccountIdentifier);
+            return CByteArrayResult::error(CSignTranserErrorCode::InvalidToAccountIdentifier);
         };
 
-    let signed_transaction = match sign::transfer(
+    sign::transfer(
         identity,
         to_account_identifier,
         amount,
         memo,
         current_timestamp_secs,
-    ) {
-        Ok(signed_transaction) => signed_transaction,
-        Err(error) => return CStrResult::error(CSignTranserErrorCode::from(error)),
-    };
-    let cstring_signed_tx = CString::new(signed_transaction)
-        .expect("failed to make c-string")
-        .into_raw();
-
-    CStrResult::ok(cstring_signed_tx)
+    )
+    .map(CByteArray::new)
+    .map_err(CSignTranserErrorCode::from)
+    .into()
 }

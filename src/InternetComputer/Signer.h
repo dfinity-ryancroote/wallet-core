@@ -7,6 +7,8 @@
 #pragma once
 
 #include "Data.h"
+#include "rust/Wrapper.h"
+#include "rust/bindgen/WalletCoreRSBindgen.h"
 #include "../PrivateKey.h"
 #include "../proto/InternetComputer.pb.h"
 
@@ -20,6 +22,7 @@ public:
 
     /// Signs a Proto::SigningInput transaction
     static Proto::SigningOutput sign(const Proto::SigningInput& input) noexcept;
+    static Proto::SigningOutput signTransfer(const Data privateKey, const Proto::Transaction_Transfer& transfer) noexcept;
 };
 
 } // namespace TW::InternetComputer
