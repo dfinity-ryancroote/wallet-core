@@ -1,7 +1,6 @@
 use std::time::Duration;
 
 use ic_ledger_types::{AccountIdentifier, Memo, Timestamp, Tokens};
-use tw_encoding::hex;
 
 use super::{
     identity::{Identity, IdentityError},
@@ -16,7 +15,7 @@ use super::{
 /// The endpoint on the ledger canister that is used to make transfers.
 const METHOD_NAME: &str = "send_pb";
 
-/// The fee for a transfer is the always 10_000 e8s.
+/// The fee for a transfer is always 10_000 e8s.
 const FEE: Tokens = Tokens::from_e8s(10_000);
 
 #[derive(Debug)]
@@ -41,7 +40,7 @@ pub fn transfer(
     amount: u64,
     memo: u64,
     current_timestamp_secs: u64,
-) -> Result<String, SignTransferError> {
+) -> Result<Vec<u8>, SignTransferError> {
     let current_timestamp_duration = Duration::from_secs(current_timestamp_secs);
     let ingress_expiry = get_ingress_expiry(current_timestamp_duration);
     let timestamp_nanos = current_timestamp_duration.as_nanos() as u64;
@@ -72,9 +71,8 @@ pub fn transfer(
     // Encode the signed transaction.
     let cbor_encoded_signed_transaction = serde_cbor::to_vec(&signed_transaction)
         .map_err(|_| SignTransferError::EncodingSignedTransactionFailed)?;
-    let hex_encoded_cbor = hex::encode(&cbor_encoded_signed_transaction, false);
 
-    Ok(hex_encoded_cbor)
+    Ok(cbor_encoded_signed_transaction)
 }
 
 fn create_update_envelope(
@@ -142,6 +140,7 @@ mod test {
     use ic_agent::identity::{Identity as IcIdentity, Secp256k1Identity};
     use ic_ledger_types::DEFAULT_SUBACCOUNT;
     use k256::SecretKey;
+    use tw_encoding::hex;
 
     pub const ECDSA_SECP256K1: &str = "-----BEGIN EC PRIVATE KEY-----
 MHQCAQEEICJxApEbuZznKFpV+VKACRK30i6+7u5Z13/DOl18cIC+oAcGBSuBBAAK
@@ -224,6 +223,7 @@ oUQDQgAEPas6Iag4TUx+Uop+3NhE6s3FlayFtbwdhRVjvOar0kPTfE/N8N6btRnd
     #[test]
     fn transfer_signature() {
         let secret_key = SecretKey::from_sec1_pem(ECDSA_SECP256K1).unwrap();
+
         let identity = crate::sign::identity::Identity::new(secret_key).unwrap();
         let to_account_identifier = AccountIdentifier::new(
             &Principal::from_text(
@@ -234,6 +234,8 @@ oUQDQgAEPas6Iag4TUx+Uop+3NhE6s3FlayFtbwdhRVjvOar0kPTfE/N8N6btRnd
         );
         let signed_transaction =
             transfer(identity, to_account_identifier, 100000000, 0, 1_691_709_940).unwrap();
-        assert_eq!(signed_transaction, SIGNED_TRANSACTION);
+        let hex_encoded_signed_transaction = hex::encode(&signed_transaction, false);
+
+        assert_eq!(hex_encoded_signed_transaction, SIGNED_TRANSACTION);
     }
 }
