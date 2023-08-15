@@ -44,10 +44,12 @@ impl Identity {
     }
 
     pub fn sign(&self, content: Vec<u8>) -> Result<Signature, IdentityError> {
+        // START memory access out of bounds, starts here
         let (ecdsa_sig, _recovery_id) = self
             .private_key
             .try_sign(&content)
             .map_err(|e| IdentityError::FailedSignature(e.to_string()))?;
+        // END
         let r = ecdsa_sig.r().as_ref().to_bytes();
         let s = ecdsa_sig.s().as_ref().to_bytes();
         let mut bytes = [0u8; 64];

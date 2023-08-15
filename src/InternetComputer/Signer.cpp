@@ -35,13 +35,13 @@ Proto::SigningOutput Signer::signTransfer(const Data privateKey, const Proto::Tr
     const auto memo = transfer.memo();
     const auto current_timestamp_secs = transfer.current_timestamp_secs();
     Rust::CByteArrayResultWrapper signed_transfer_result = Rust::tw_internetcomputer_sign_transfer(privateKey.data(), privateKey.size(), to_account_identifier.c_str(), amount, memo, current_timestamp_secs);
-    if (signed_transfer_result.isErr()) {
-        return handleSignTransferError(signed_transfer_result.errorCode());
-    }
+    // if (signed_transfer_result.isErr()) {
+    //     return handleSignTransferError(signed_transfer_result.errorCode());
+    // }
 
     auto output = Proto::SigningOutput();
-    const auto signed_transaction = signed_transfer_result.unwrap_or_default();
-    output.set_signed_transaction(signed_transaction.data.data(), signed_transaction.data.size());
+    // const auto signed_transaction = signed_transfer_result.unwrap_or_default();
+    // output.set_signed_transaction(signed_transaction.data.data(), signed_transaction.data.size());
 
     return output;
 }
