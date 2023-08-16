@@ -1,3 +1,4 @@
+pub mod envelope_pair;
 pub mod transfer;
 
 use candid::Principal;

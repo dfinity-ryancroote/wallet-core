@@ -197,7 +197,70 @@ pub unsafe extern "C" fn tw_internetcomputer_get_signature_data_from_request_id(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn tw_internetcomputer_create_envelope_pair() {}
+pub unsafe extern "C" fn tw_internetcomputer_encode_envelope_pair(
+    sender: *const u8,
+    sender_len: usize,
+    der_encoded_public_key: *const u8,
+    der_encoded_public_key_len: usize,
+    canister_id: *const u8,
+    canister_id_len: usize,
+    method_name: *const c_char,
+    arg: *const u8,
+    arg_len: usize,
+    update_request_id: *const u8,
+    update_request_signature: *const u8,
+    update_request_signature_len: usize,
+    read_state_request_signature: *const u8,
+    read_state_request_signature_len: usize,
+    current_timestamp_secs: u64,
+) -> CByteArrayResult {
+    let Some(sender) = CByteArrayRef::new(sender, sender_len).as_slice() else {
+        return CByteArrayResult::error(CEncodingCode::InvalidInput);
+    };
+
+    let Some(der_encoded_public_key) = CByteArrayRef::new(der_encoded_public_key, der_encoded_public_key_len).as_slice() else {
+        return CByteArrayResult::error(CEncodingCode::InvalidInput);
+    };
+
+    let Some(canister_id) = CByteArrayRef::new(canister_id, canister_id_len).as_slice() else {
+        return CByteArrayResult::error(CEncodingCode::InvalidInput);
+    };
+
+    let Ok(method_name) = CStr::from_ptr(method_name).to_str() else {
+        return CByteArrayResult::error(CEncodingCode::InvalidInput);
+    };
+
+    let Some(arg) = CByteArrayRef::new(arg, arg_len).as_slice() else {
+        return CByteArrayResult::error(CEncodingCode::InvalidInput);
+    };
+
+    let Some(update_request_id) = CByteArrayRef::new(update_request_id, interface_spec::request_id::REQUEST_ID_LENGTH).as_slice() else {
+        return CByteArrayResult::error(CEncodingCode::InvalidInput);
+    };
+
+    let Some(update_request_signature) = CByteArrayRef::new(update_request_signature, update_request_signature_len).as_slice() else {
+        return CByteArrayResult::error(CEncodingCode::InvalidInput);
+    };
+
+    let Some(read_state_request_signature) = CByteArrayRef::new(read_state_request_signature, read_state_request_signature_len).as_slice() else {
+        return CByteArrayResult::error(CEncodingCode::InvalidInput);
+    };
+
+    encode::envelope_pair::encode_envolope_pair(
+        sender.to_vec(),
+        der_encoded_public_key.to_vec(),
+        canister_id.to_vec(),
+        method_name,
+        arg.to_vec(),
+        update_request_id.to_vec(),
+        update_request_signature.to_vec(),
+        read_state_request_signature.to_vec(),
+        current_timestamp_secs,
+    )
+    .map(CByteArray::new)
+    .map_err(|_| CEncodingCode::InvalidInput)
+    .into()
+}
 
 /// Encodes an expected secp256k1 extended public key to an Internet Computer principal.
 /// \param pubkey *non-null* byte array.
