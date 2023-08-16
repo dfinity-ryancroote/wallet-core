@@ -6,5 +6,6 @@
 
 pub mod encode;
 pub mod ffi;
+pub mod interface_spec;
 pub mod sign;
 pub mod validation;

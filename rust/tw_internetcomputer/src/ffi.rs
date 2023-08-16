@@ -4,7 +4,10 @@
 // terms governing use, modification, and redistribution, is contained in the
 // file LICENSE at the root of the source code distribution tree.
 
-use std::ffi::{c_char, CStr, CString};
+use std::{
+    ffi::{c_char, CStr, CString},
+    time::Duration,
+};
 
 use ic_ledger_types::AccountIdentifier;
 use k256::SecretKey;
@@ -15,7 +18,7 @@ use tw_memory::ffi::{
 };
 
 use crate::{
-    encode,
+    encode, interface_spec,
     sign::{self, Identity, SignTransferError},
     validation,
 };
@@ -58,6 +61,143 @@ pub unsafe extern "C" fn tw_internetcomputer_is_address_valid(address: *const c_
 
     validation::is_address_valid(address)
 }
+
+#[no_mangle]
+pub unsafe extern "C" fn tw_internetcomputer_der_encode_public_key(
+    public_key: *const u8,
+    public_key_len: usize,
+) -> CByteArrayResult {
+    let Some(public_key_bytes) = CByteArrayRef::new(public_key, public_key_len).as_slice() else {
+        return CByteArrayResult::error(CEncodingCode::InvalidInput);
+    };
+
+    encode::der_encode_public_key(public_key_bytes)
+        .map(CByteArray::new)
+        .map_err(CEncodingCode::from)
+        .into()
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn tw_internetcomputer_encode_der_encoded_public_key_to_principal(
+    der_encoded_public_key: *const u8,
+    der_encoded_public_key_len: usize,
+) -> CByteArrayResult {
+    let Some(bytes) = CByteArrayRef::new(der_encoded_public_key, der_encoded_public_key_len).as_slice() else {
+        return CByteArrayResult::error(CEncodingCode::InvalidInput);
+    };
+
+    let bytes = encode::encode_der_encoded_public_key_to_principal(bytes);
+    CByteArrayResult::ok(CByteArray::new(bytes))
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn tw_internetcomputer_encode_transfer_args(
+    to_account_identifier: *const c_char,
+    amount: u64,
+    memo: u64,
+    current_timestamp_secs: u64,
+) -> CByteArrayResult {
+    let Ok(to_account_identifier) = CStr::from_ptr(to_account_identifier).to_str() else {
+        return CByteArrayResult::error(CSignTranserErrorCode::InvalidToAccountIdentifier);
+    };
+
+    encode::transfer::encode_transfer_args(
+        to_account_identifier,
+        amount,
+        memo,
+        current_timestamp_secs,
+    )
+    .map(CByteArray::new)
+    .map_err(|_| CSignTranserErrorCode::FailedEncodingSendArgs)
+    .into()
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn tw_internetcomputer_create_update_request_id(
+    canister_id: *const u8,
+    canister_id_len: usize,
+    method_name: *const c_char,
+    sender: *const u8,
+    sender_len: usize,
+    args: *const u8,
+    args_len: usize,
+    current_timestamp_secs: u64,
+) -> CByteArrayResult {
+    let Some(canister_id) = CByteArrayRef::new(canister_id, canister_id_len).as_slice() else {
+        return CByteArrayResult::error(CEncodingCode::InvalidInput);
+    };
+
+    let Ok(method_name) = CStr::from_ptr(method_name).to_str() else {
+        return CByteArrayResult::error(CEncodingCode::InvalidInput);
+    };
+
+    let Some(sender) = CByteArrayRef::new(sender, sender_len).as_slice() else {
+        return CByteArrayResult::error(CEncodingCode::InvalidInput);
+    };
+
+    let Some(arg) = CByteArrayRef::new(args, args_len).as_slice() else {
+        return CByteArrayResult::error(CEncodingCode::InvalidInput);
+    };
+
+    let ingress_expiry =
+        interface_spec::get_ingress_expiry(Duration::from_secs(current_timestamp_secs));
+
+    let request_id = interface_spec::request_id::call_request_id(
+        canister_id.to_vec(),
+        method_name,
+        arg.to_vec(),
+        ingress_expiry,
+        sender.to_vec(),
+        None,
+    );
+
+    CByteArrayResult::ok(CByteArray::new(request_id.0.to_vec()))
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn tw_internetcomputer_create_read_state_request_id(
+    sender: *const u8,
+    sender_len: usize,
+    update_request_id: *const u8,
+    current_timestamp_secs: u64,
+) -> CByteArrayResult {
+    let Some(sender) = CByteArrayRef::new(sender, sender_len).as_slice() else {
+        return CByteArrayResult::error(CEncodingCode::InvalidInput);
+    };
+
+    let Some(update_request_id) = CByteArrayRef::new(update_request_id, interface_spec::request_id::REQUEST_ID_LENGTH).as_slice() else {
+        return CByteArrayResult::error(CEncodingCode::InvalidInput);
+    };
+
+    let ingress_expiry =
+        interface_spec::get_ingress_expiry(Duration::from_secs(current_timestamp_secs));
+
+    let paths: Vec<Vec<ic_certification::Label>> =
+        vec![vec!["request_status".into(), update_request_id.into()]];
+    let request_id = interface_spec::request_id::read_state_request_id(
+        ingress_expiry,
+        paths,
+        sender.to_vec(),
+        None,
+    );
+
+    CByteArrayResult::ok(CByteArray::new(request_id.0.to_vec()))
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn tw_internetcomputer_get_signature_data_from_request_id(
+    request_id: *const u8,
+) -> CByteArrayResult {
+    let Some(request_id) = CByteArrayRef::new(request_id, interface_spec::request_id::REQUEST_ID_LENGTH).as_slice() else {
+        return CByteArrayResult::error(CEncodingCode::InvalidInput);
+    };
+
+    let signature_data = interface_spec::request_id::make_sig_data(request_id);
+    CByteArrayResult::ok(CByteArray::new(signature_data))
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn tw_internetcomputer_create_envelope_pair() {}
 
 /// Encodes an expected secp256k1 extended public key to an Internet Computer principal.
 /// \param pubkey *non-null* byte array.
