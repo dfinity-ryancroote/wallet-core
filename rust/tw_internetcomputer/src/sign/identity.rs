@@ -59,6 +59,11 @@ impl Identity {
         bytes[(32 - r.len())..32].clone_from_slice(&r);
         bytes[32 + (32 - s.len())..].clone_from_slice(&s);
 
+        let s = "45004b90cc7bdfdd42d63bfca32600cabf7a08a81fd017b87d6c0086eea4bb93640d7207ded005a937e05f5f524c19f0b2f92607cd428c6a26760c64e6ea28d700";
+        println!("tw sig: {:?}", tw_encoding::hex::decode(s).unwrap());
+
+        println!("our sig: {:?}", bytes);
+
         let signature = Signature {
             public_key: self.der_encoded_public_key.clone(),
             signature: bytes.to_vec(), //Signature bytes
