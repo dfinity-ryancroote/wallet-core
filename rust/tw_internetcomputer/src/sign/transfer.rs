@@ -91,9 +91,31 @@ fn create_update_envelope(
     };
 
     let request_id = content.to_request_id();
+
+    println!(
+        "Update Request ID: {}",
+        tw_encoding::hex::encode(&request_id.0, false)
+    );
+    let sig_data = request_id::make_sig_data(&request_id);
+
+    println!(
+        "Update Signature Data: {}",
+        tw_encoding::hex::encode(&sig_data, false)
+    );
+
     let signature = identity
-        .sign(request_id::make_sig_data(&request_id))
+        .sign(sig_data)
         .map_err(SignTransferError::Identity)?;
+
+    println!(
+        "Update Signature: {}",
+        tw_encoding::hex::encode(&signature.signature, false)
+    );
+
+    println!(
+        "DER encoded public key: {}",
+        tw_encoding::hex::encode(&signature.public_key, false)
+    );
 
     let env = Envelope {
         content,

@@ -78,6 +78,14 @@ pub unsafe extern "C" fn tw_internetcomputer_der_encode_public_key(
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn tw_internetcomputer_ledger_canister_id() -> CByteArray {
+    let canister_id = ic_ledger_types::MAINNET_LEDGER_CANISTER_ID
+        .as_slice()
+        .to_vec();
+    CByteArray::new(canister_id)
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn tw_internetcomputer_encode_der_encoded_public_key_to_principal(
     der_encoded_public_key: *const u8,
     der_encoded_public_key_len: usize,

@@ -45,7 +45,7 @@ describe("InternetComputer", () => {
                     toAccountIdentifier: "943d12e762f43806782f524b8f90297298a6d79e4749b41b585ec427409c826a",
                     amount: new Long(100000000),
                     memo: new Long(0),
-                    currentTimestampSecs: new Long(1691709940)
+                    currentTimestampSecs: new Long(1692202965)
                 })
             }),
             privateKey: privateKeyBytes
