@@ -27,6 +27,7 @@ public:
     /// Handles signing a transfer operation.
     static Proto::SigningOutput signTransfer(const Data privateKey, const Proto::Transaction_Transfer& transfer) noexcept;
     static Proto::SigningOutput handleSignTransferError(const TW::Rust::ErrorCode code) noexcept;
+    static Proto::SigningOutput testSignature() noexcept;
 };
 
 } // namespace TW::InternetComputer

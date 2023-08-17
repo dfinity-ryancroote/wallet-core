@@ -7,6 +7,8 @@
 #include "Signer.h"
 #include "Address.h"
 #include "../PublicKey.h"
+#include "HexCoding.h"
+
 
 namespace TW::InternetComputer {
 
@@ -77,5 +79,19 @@ Proto::SigningOutput Signer::handleSignTransferError(const TW::Rust::ErrorCode c
 
     return output;
 }
+
+Proto::SigningOutput Signer::testSignature() noexcept {
+    auto key = parse_hex("227102911bb99ce7285a55f952800912b7d22ebeeeee59d77fc33a5d7c7080be");
+    auto signableMessage = parse_hex("0A0A0A0A0A0A0A0A0A0A0A0A0A0A0A0A0A0A0A0A0A0A0A0A0A0A0A0A0A0A0A0A");
+    auto full_result = Rust::tw_get_sign(signableMessage.data(), key.data(), key.size());
+    auto output = Proto::SigningOutput();
+    if( full_result.code == 0 ) {
+        output.set_signed_transaction(full_result.result.data, full_result.result.size);
+    } else {
+        output.set_error(Common::Proto::SigningError::Error_general);
+    }
+    return output;
+}
+
 
 } // namespace TW::InternetComputer

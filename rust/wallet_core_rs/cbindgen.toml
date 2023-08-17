@@ -16,6 +16,7 @@ extra_bindings = [
     "tw_move_parser",
     "tw_proto",
     "tw_starknet",
+    "tw_sign",
 ]
 include = [
     "tw_bitcoin",
@@ -27,4 +28,5 @@ include = [
     "tw_move_parser",
     "tw_proto",
     "tw_starknet",
+    "tw_sign",
 ]

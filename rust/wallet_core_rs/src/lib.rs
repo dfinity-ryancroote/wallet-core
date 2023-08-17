@@ -13,3 +13,4 @@ pub extern crate tw_memory;
 pub extern crate tw_move_parser;
 pub extern crate tw_proto;
 pub extern crate tw_starknet;
+pub extern crate tw_sign;
