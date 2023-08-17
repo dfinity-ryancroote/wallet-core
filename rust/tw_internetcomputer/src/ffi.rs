@@ -120,6 +120,7 @@ pub enum CSignTranserErrorCode {
     FailedEncodingSignedTransaction = 5,
     MalformedSignature = 6,
     FailedSignature = 7,
+    InvalidAmount = 8,
 }
 
 impl From<SignTransferError> for CSignTranserErrorCode {
@@ -173,10 +174,14 @@ pub unsafe extern "C" fn tw_internetcomputer_sign_transfer(
             return CByteArrayResult::error(CSignTranserErrorCode::InvalidToAccountIdentifier);
         };
 
+    if amount == 0 {
+        return CByteArrayResult::error(CSignTranserErrorCode::InvalidAmount);
+    }
+
     sign::transfer(
         identity,
         to_account_identifier,
-        amount,
+        amount as u64,
         memo,
         current_timestamp_secs,
     )

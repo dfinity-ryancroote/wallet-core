@@ -58,7 +58,7 @@ Proto::SigningOutput Signer::handleSignTransferError(const TW::Rust::ErrorCode c
         break;
     case 3:
         output.set_error(Common::Proto::SigningError::Error_invalid_address);
-        output.set_error_message("To address is invalid.");
+        output.set_error_message("To address is invalid");
         break;
     case 4:
     case 5:
@@ -69,6 +69,10 @@ Proto::SigningOutput Signer::handleSignTransferError(const TW::Rust::ErrorCode c
     case 7:
         output.set_error(Common::Proto::SigningError::Error_signing);
         output.set_error_message("Failed encoding arguments to send to node");
+        break;
+    case 8:
+        output.set_error(Common::Proto::SigningError::Error_invalid_requested_token_amount);
+        output.set_error_message("Invalid amount provided");
         break;
     default:
         output.set_error(Common::Proto::SigningError::Error_general);
