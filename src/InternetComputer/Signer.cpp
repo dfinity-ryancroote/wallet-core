@@ -10,10 +10,40 @@
 
 namespace TW::InternetComputer {
 
-Proto::SigningOutput Signer::sign(const Proto::SigningInput& input) noexcept {
-    Data privateKey = Data(input.private_key().begin(), input.private_key().end());
+const usize KEY_SIZE_SECPK256_BYTES = 32;
 
-    Proto::SigningOutput output;
+// Validates Input
+// returns true if validation is successful
+// returns false if validation fails, output will have the appropriate error
+Proto::SigningOutput Signer::validateInput(const Proto::SigningInput& input, Proto::SigningOutput& output) noexcept {
+    output.Clear();
+    bool return_false = false;
+
+    // Validate private key
+    if(input.private_key().empty()) {
+        output.set_error(Common::Proto::SigningError::Error_missing_private_key);
+        return return_false;
+    } else if(input.private_key().size() != KEY_SIZE_SECPK256_BYTES) {
+        output.set_error(Common::Proto::SigningError::Error_invalid_private_key);
+        return return_false;
+    }
+
+    // Validate transaction parameters
+    if( !input.has_transaction() || !input.transaction().has_transfer() ) {
+        output.set_error(Common::Proto::SigningError::Error_invalid_params);
+        return return_false;
+    }
+    return true;
+}
+
+Proto::SigningOutput Signer::sign(const Proto::SigningInput& input) noexcept {
+    auto output = Proto::SigningOutput();
+
+    // validate the input data
+    if( !validateInput(input, output) )
+        return output;
+
+    Data privateKey = Data(input.private_key().begin(), input.private_key().end());
 
     auto transaction = input.transaction();
 

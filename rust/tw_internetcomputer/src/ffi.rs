@@ -20,6 +20,8 @@ use crate::{
     validation,
 };
 
+pub const KEY_SIZE_SECP256K1_BYTES: usize = 32;
+
 #[repr(C)]
 pub enum CEncodingCode {
     Ok = 0,
@@ -158,6 +160,9 @@ pub unsafe extern "C" fn tw_internetcomputer_sign_transfer(
     memo: u64,
     current_timestamp_secs: u64,
 ) -> CByteArrayResult {
+    if privkey_len != KEY_SIZE_SECP256K1_BYTES {
+        return CByteArrayResult::error(CSignTranserErrorCode::InvalidPrivateKey);
+    }
     let secret_key_bytes = std::slice::from_raw_parts(privkey_bytes, privkey_len);
     let Ok(secret_key) = SecretKey::from_slice(secret_key_bytes) else {
         return CByteArrayResult::error(CSignTranserErrorCode::InvalidPrivateKey);
@@ -166,11 +171,14 @@ pub unsafe extern "C" fn tw_internetcomputer_sign_transfer(
         Ok(identity) => identity,
         Err(_) => return CByteArrayResult::error(CSignTranserErrorCode::FailedDerEncode),
     };
-    let Ok(textual_to_account_identitifer) = CStr::from_ptr(to_account_identifier).to_str() else {
+    if to_account_identifier.is_null {
+        return CByteArrayResult::error(CSignTranserErrorCode::InvalidToAccountIdentifier);
+    }
+    let Ok(textual_to_account_identifier) = CStr::from_ptr(to_account_identifier).to_str() else {
         return CByteArrayResult::error(CSignTranserErrorCode::InvalidToAccountIdentifier);
     };
     let Ok(to_account_identifier) =
-        AccountIdentifier::from_hex(textual_to_account_identitifer) else {
+        AccountIdentifier::from_hex(textual_to_account_identifier) else {
             return CByteArrayResult::error(CSignTranserErrorCode::InvalidToAccountIdentifier);
         };
 
