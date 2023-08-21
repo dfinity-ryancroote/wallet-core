@@ -32,3 +32,6 @@ comparable = { version = "0.5.1", features = ["derive"] }
 sha2 = "0.10.6"
 maplit = "1.0.2"
 serde_bytes = "0.11.2"
+
+[dev-dependencies]
+k256 = { version = "0.13.0", features = ["pem"], default-features = false }

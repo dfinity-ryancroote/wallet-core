@@ -171,7 +171,7 @@ pub unsafe extern "C" fn tw_internetcomputer_sign_transfer(
         Ok(identity) => identity,
         Err(_) => return CByteArrayResult::error(CSignTranserErrorCode::FailedDerEncode),
     };
-    if to_account_identifier.is_null {
+    if to_account_identifier.is_null() {
         return CByteArrayResult::error(CSignTranserErrorCode::InvalidToAccountIdentifier);
     }
     let Ok(textual_to_account_identifier) = CStr::from_ptr(to_account_identifier).to_str() else {
