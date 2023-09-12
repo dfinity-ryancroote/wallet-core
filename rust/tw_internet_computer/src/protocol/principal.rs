@@ -1,9 +1,9 @@
-use candid::{types::principal::PrincipalError, Principal as CandidPrincipal};
+use candid::{types::principal::PrincipalError, CandidType, Principal as CandidPrincipal};
 use serde::{Deserialize, Serialize};
 
 use tw_keypair::ecdsa::secp256k1::PublicKey;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, CandidType, Clone, PartialEq, Eq, Serialize, Deserialize, Copy)]
 pub struct Principal(CandidPrincipal);
 
 impl Principal {
@@ -31,6 +31,18 @@ impl Principal {
     #[inline]
     pub fn as_slice(&self) -> &[u8] {
         self.0.as_slice()
+    }
+}
+
+impl std::cmp::Ord for Principal {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.0.cmp(&other.0)
+    }
+}
+
+impl std::cmp::PartialOrd for Principal {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.0.cmp(&other.0))
     }
 }
 
