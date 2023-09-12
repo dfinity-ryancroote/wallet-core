@@ -8,7 +8,7 @@ use tw_keypair::ecdsa::secp256k1::PublicKey;
 
 use crate::protocol::principal::Principal;
 
-pub trait IcpAddress: std::str::FromStr<Err = AddressError> + Into<AccountIdentifier> {
+pub trait Address: std::str::FromStr<Err = AddressError> {
     fn from_str_optional(s: &str) -> AddressResult<Option<Self>> {
         if s.is_empty() {
             return Ok(None);
@@ -104,7 +104,7 @@ impl CoinAddress for AccountIdentifier {
     }
 }
 
-impl IcpAddress for AccountIdentifier {}
+impl Address for AccountIdentifier {}
 
 impl AsRef<[u8]> for AccountIdentifier {
     fn as_ref(&self) -> &[u8] {

@@ -7,7 +7,7 @@
 pub mod address;
 pub mod context;
 pub mod entry;
-pub mod icrc1;
+pub mod icrc;
 pub mod protocol;
 pub mod signer;
 pub mod transactions;

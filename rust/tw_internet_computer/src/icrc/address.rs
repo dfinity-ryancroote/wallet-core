@@ -1,43 +1,65 @@
-use candid::{types::principal::PrincipalError, CandidType};
+use candid::CandidType;
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
+use tw_coin_entry::error::{AddressError, AddressResult};
 use tw_encoding::{base32, hex};
 use tw_hash::crc32::crc32;
 
-use crate::protocol::principal::Principal;
+use crate::{address::Address, protocol::principal::Principal};
 
 pub type Subaccount = [u8; 32];
 
 pub const DEFAULT_SUBACCOUNT: &Subaccount = &[0; 32];
 
+pub trait IcrcAddress: std::str::FromStr<Err = AddressError> + Into<IcrcAccount> {
+    fn from_str_optional(s: &str) -> AddressResult<Option<Self>> {
+        if s.is_empty() {
+            return Ok(None);
+        }
+
+        Self::from_str(s).map(Some)
+    }
+}
+
 // Account representation of ledgers supporting the ICRC1 standard
 #[derive(Serialize, CandidType, Deserialize, Clone, Debug, Copy)]
-pub struct Account {
+pub struct IcrcAccount {
     pub owner: Principal,
     pub subaccount: Option<Subaccount>,
 }
 
-impl Account {
+impl IcrcAccount {
     #[inline]
     pub fn effective_subaccount(&self) -> &Subaccount {
         self.subaccount.as_ref().unwrap_or(DEFAULT_SUBACCOUNT)
     }
 }
 
-impl PartialEq for Account {
+impl Address for IcrcAccount {
+    fn from_str_optional(s: &str) -> AddressResult<Option<Self>> {
+        if s.is_empty() {
+            return Ok(None);
+        }
+
+        Self::from_str(s).map(Some)
+    }
+}
+
+impl PartialEq for IcrcAccount {
     fn eq(&self, other: &Self) -> bool {
         self.owner == other.owner && self.effective_subaccount() == other.effective_subaccount()
     }
 }
 
-impl Eq for Account {}
+impl Eq for IcrcAccount {}
 
-impl std::cmp::PartialOrd for Account {
+impl std::cmp::PartialOrd for IcrcAccount {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl std::cmp::Ord for Account {
+impl std::cmp::Ord for IcrcAccount {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.owner.cmp(&other.owner).then_with(|| {
             self.effective_subaccount()
@@ -57,7 +79,7 @@ fn full_account_checksum(owner: &[u8], subaccount: &[u8]) -> String {
         .to_lowercase()
 }
 
-impl std::fmt::Display for Account {
+impl std::fmt::Display for IcrcAccount {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // https://github.com/dfinity/ICRC-1/blob/main/standards/ICRC-1/TextualEncoding.md#textual-encoding-of-icrc-1-accounts
         match &self.subaccount {
@@ -79,7 +101,7 @@ impl std::fmt::Display for Account {
     }
 }
 
-impl From<Principal> for Account {
+impl From<Principal> for IcrcAccount {
     fn from(owner: Principal) -> Self {
         Self {
             owner,
@@ -88,39 +110,8 @@ impl From<Principal> for Account {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
-pub enum ICRC1TextReprError {
-    DefaultSubaccountShouldBeOmitted,
-    InvalidChecksum { expected: String },
-    InvalidPrincipal(PrincipalError),
-    InvalidSubaccount(String),
-    LeadingZeroesInSubaccount,
-    MissingChecksum,
-}
-
-impl std::fmt::Display for ICRC1TextReprError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ICRC1TextReprError::DefaultSubaccountShouldBeOmitted => {
-                write!(f, "default subaccount should be omitted")
-            },
-            ICRC1TextReprError::InvalidChecksum { expected } => {
-                write!(f, "invalid checksum (expected: {})", expected)
-            },
-            ICRC1TextReprError::InvalidPrincipal(e) => write!(f, "invalid principal: {}", e),
-            ICRC1TextReprError::InvalidSubaccount(e) => write!(f, "invalid subaccount: {}", e),
-            ICRC1TextReprError::LeadingZeroesInSubaccount => {
-                write!(f, "subaccount should not have leading zeroes")
-            },
-            ICRC1TextReprError::MissingChecksum => write!(f, "missing checksum"),
-        }
-    }
-}
-
-impl std::error::Error for ICRC1TextReprError {}
-
-impl std::str::FromStr for Account {
-    type Err = ICRC1TextReprError;
+impl std::str::FromStr for IcrcAccount {
+    type Err = AddressError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.split_once('.') {
@@ -129,30 +120,26 @@ impl std::str::FromStr for Account {
                     // The checksum is 7 characters (crc32 encoded via base32) while principal
                     // groups are 5 characters
                     Some((_, checksum)) if checksum.len() != 7 => {
-                        return Err(Self::Err::MissingChecksum)
+                        return Err(Self::Err::InvalidChecksum)
                     },
                     Some(principal_and_checksum) => principal_and_checksum,
-                    None => return Err(Self::Err::MissingChecksum),
+                    None => return Err(Self::Err::InvalidChecksum),
                 };
                 if subaccount.starts_with('0') {
-                    return Err(Self::Err::LeadingZeroesInSubaccount);
+                    return Err(Self::Err::FromHexError);
                 }
-                let owner = Principal::from_text(principal).map_err(Self::Err::InvalidPrincipal)?;
-                let subaccount = hex::decode(&format!("{:0>64}", subaccount)).map_err(|e| {
-                    Self::Err::InvalidSubaccount(format!("subaccount is not hex-encoded: {e}"))
-                })?;
-                let subaccount: Subaccount = subaccount.try_into().map_err(|_| {
-                    Self::Err::InvalidSubaccount("subaccount is longer than 32 bytes".to_string())
-                })?;
+                let owner = Principal::from_text(principal).map_err(|_| Self::Err::FromHexError)?;
+                let subaccount = hex::decode(&format!("{:0>64}", subaccount))
+                    .map_err(|_| Self::Err::FromHexError)?;
+                let subaccount: Subaccount =
+                    subaccount.try_into().map_err(|_| Self::Err::FromHexError)?;
                 if &subaccount == DEFAULT_SUBACCOUNT {
-                    return Err(Self::Err::DefaultSubaccountShouldBeOmitted);
+                    return Err(Self::Err::FromHexError);
                 }
                 let expected_checksum =
                     full_account_checksum(owner.as_slice(), subaccount.as_slice());
                 if checksum != expected_checksum {
-                    return Err(Self::Err::InvalidChecksum {
-                        expected: expected_checksum,
-                    });
+                    return Err(AddressError::InvalidChecksum);
                 }
                 Ok(Self {
                     owner,
@@ -160,8 +147,8 @@ impl std::str::FromStr for Account {
                 })
             },
             None => Principal::from_text(s)
-                .map_err(Self::Err::InvalidPrincipal)
-                .map(Account::from),
+                .map_err(|_| Self::Err::FromHexError)
+                .map(IcrcAccount::from),
         }
     }
 }
@@ -174,7 +161,7 @@ mod test {
         let principal =
             Principal::from_text("iooej-vlrze-c5tme-tn7qt-vqe7z-7bsj5-ebxlc-hlzgs-lueo3-3yast-pae")
                 .unwrap();
-        let account = Account {
+        let account = IcrcAccount {
             owner: principal.clone(),
             subaccount: None,
         };
@@ -184,7 +171,7 @@ mod test {
             account.to_string()
         );
 
-        let account = Account {
+        let account = IcrcAccount {
             owner: principal,
             subaccount: Some([0; 32]),
         };
@@ -196,7 +183,7 @@ mod test {
         let principal =
             Principal::from_text("k2t6j-2nvnp-4zjm3-25dtz-6xhaa-c7boj-5gayf-oj3xs-i43lp-teztq-6ae")
                 .unwrap();
-        let account = Account {
+        let account = IcrcAccount {
             owner: principal.clone(),
             subaccount: Some([
                 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
@@ -209,7 +196,7 @@ mod test {
             account.to_string()
         );
 
-        let account = Account {
+        let account = IcrcAccount {
             owner: principal,
             subaccount: Some([
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,

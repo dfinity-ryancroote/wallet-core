@@ -5,7 +5,7 @@
 // file LICENSE at the root of the source code distribution tree.
 
 use crate::{
-    address::{AccountIdentifier, IcpAddress},
+    address::{AccountIdentifier, Address},
     protocol::principal::Principal,
 };
 
@@ -14,7 +14,7 @@ pub trait CanisterId {
 }
 
 pub trait InternetComputerContext {
-    type Address: IcpAddress;
+    type Address: Address;
     type Canister: CanisterId;
 }
 
