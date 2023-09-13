@@ -32,7 +32,7 @@ impl From<transactions::SignTransactionError> for SigningError {
             | transactions::SignTransactionError::EncodingArgsFailed => {
                 SigningError(CommonError::Error_internal)
             },
-            transactions::SignTransactionError::InvalidToAccountIdentifier => {
+            transactions::SignTransactionError::InvalidToAddress => {
                 SigningError(CommonError::Error_invalid_address)
             },
             transactions::SignTransactionError::InvalidAmount => {

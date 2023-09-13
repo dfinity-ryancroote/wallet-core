@@ -22,9 +22,18 @@ message Transaction {
         uint64 current_timestamp_nanos = 4;
     }
 
+    // ICRC-1 based ledger transfer arguments
+    message Icrc1Transfer {
+        string to_icrc_account = 1;
+        uint64 amount = 2;
+        bytes memo = 3;
+        uint64 created_at_time_nanos = 4;
+    }
+
     // Payload transfer
     oneof transaction_oneof {
         Transfer transfer = 1;
+        Icrc1Transfer icrc1_transfer = 2;
     }
 }
 

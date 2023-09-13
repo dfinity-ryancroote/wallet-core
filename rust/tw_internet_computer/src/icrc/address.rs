@@ -1,9 +1,13 @@
 use candid::CandidType;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
-use tw_coin_entry::error::{AddressError, AddressResult};
+use tw_coin_entry::{
+    coin_entry::CoinAddress,
+    error::{AddressError, AddressResult},
+};
 use tw_encoding::{base32, hex};
 use tw_hash::crc32::crc32;
+use tw_keypair::ecdsa::secp256k1::PublicKey;
 
 use crate::{address::Address, protocol::principal::Principal};
 
@@ -107,6 +111,22 @@ impl From<Principal> for IcrcAccount {
             owner,
             subaccount: None,
         }
+    }
+}
+
+impl From<&PublicKey> for IcrcAccount {
+    fn from(public_key: &PublicKey) -> Self {
+        let principal = Principal::from(public_key);
+        IcrcAccount::from(principal)
+    }
+}
+
+impl CoinAddress for IcrcAccount {
+    fn data(&self) -> tw_memory::Data {
+        let mut data = vec![];
+        data.extend_from_slice(self.owner.as_slice());
+        data.extend_from_slice(&self.subaccount.unwrap_or_default());
+        data
     }
 }
 
