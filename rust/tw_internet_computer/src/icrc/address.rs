@@ -228,4 +228,60 @@ mod test {
             account.to_string()
         );
     }
+
+    #[test]
+    fn from_str() {
+        let expected_owner =
+            Principal::from_text("k2t6j-2nvnp-4zjm3-25dtz-6xhaa-c7boj-5gayf-oj3xs-i43lp-teztq-6ae")
+                .unwrap();
+
+        assert!(matches!(IcrcAccount::from_str(
+            "k2t6j-2nvnp-4zjm3-25dtz-6xhaa-c7boj-5gayf-oj3xs-i43lp-teztq-6ae"
+        ), Ok(IcrcAccount { owner, subaccount }) if owner == expected_owner && subaccount == None));
+
+        assert!(
+            IcrcAccount::from_str(
+                "k2t6j-2nvnp-4zjm3-25dtz-6xhaa-c7boj-5gayf-oj3xs-i43lp-teztq-6ae-q6bn32y."
+            )
+            .is_err(),
+            "If using default account, no need for checksum or subaccount"
+        );
+
+        assert!(
+            IcrcAccount::from_str("k2t6j2nvnp4zjm3-25dtz6xhaac7boj5gayfoj3xs-i43lp-teztq-6ae")
+                .is_err(),
+            "Invalid principal encoding"
+        );
+
+        assert!(matches!(
+            IcrcAccount::from_str(
+                "k2t6j-2nvnp-4zjm3-25dtz-6xhaa-c7boj-5gayf-oj3xs-i43lp-teztq-6ae-6cc627i.1"
+            ),
+            Ok(IcrcAccount { owner, subaccount }) if owner == expected_owner && subaccount == Some([
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 1,
+            ])
+        ));
+
+        assert!(
+            IcrcAccount::from_str(
+                "k2t6j-2nvnp-4zjm3-25dtz-6xhaa-c7boj-5gayf-oj3xs-i43lp-teztq-6ae-6cc627i.01"
+            )
+            .is_err(),
+            "Leading zeros are not allowed in subaccounts."
+        );
+
+        assert!(
+            IcrcAccount::from_str(
+                "k2t6j-2nvnp-4zjm3-25dtz-6xhaa-c7boj-5gayf-oj3xs-i43lp-teztq-6ae.1"
+            )
+            .is_err(),
+            "Missing checksum"
+        );
+
+        assert!(matches!(
+            IcrcAccount::from_str("k2t6j-2nvnp-4zjm3-25dtz-6xhaa-c7boj-5gayf-oj3xs-i43lp-teztq-6ae-dfxgiyy.102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20"),
+            Ok(IcrcAccount { owner, subaccount }) if owner == expected_owner && subaccount == Some([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32])
+        ));
+    }
 }
