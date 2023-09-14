@@ -24,9 +24,9 @@ use tw_internet_computer::{icrc::address::IcrcAccount, signer::Signer};
 
 use crate::context::CkBtcContext;
 
-pub struct InternetComputerEntry;
+pub struct ChainkeyBitcoinEntry;
 
-impl CoinEntry for InternetComputerEntry {
+impl CoinEntry for ChainkeyBitcoinEntry {
     type AddressPrefix = NoPrefix;
 
     type Address = IcrcAccount;

@@ -21,6 +21,7 @@
 #include "Bitcoin/Entry.h"
 #include "BitcoinDiamond/Entry.h"
 #include "Cardano/Entry.h"
+#include "ChainkeyBitcoin/Entry.h"
 #include "Cosmos/Entry.h"
 #include "Decred/Entry.h"
 #include "EOS/Entry.h"
@@ -119,6 +120,7 @@ Hedera::Entry HederaDP;
 TheOpenNetwork::Entry tonDP;
 Sui::Entry SuiDP;
 InternetComputer::Entry InternetComputerDP;
+ChainkeyBitcoin::Entry ChainkeyBitcoinDP;
 // end_of_coin_dipatcher_declarations_marker_do_not_modify
 
 CoinEntry* coinDispatcher(TWCoinType coinType) {
@@ -277,6 +279,9 @@ CoinEntry* coinDispatcher(TWCoinType coinType) {
     case TWBlockchainInternetComputer:
         entry = &InternetComputerDP;
         break;
+    case TWBlockchainChainkeyBitcoin:
+        entry = &ChainkeyBitcoinDP;
+        break;
         // end_of_coin_dipatcher_switch_marker_do_not_modify
 
     default:
@@ -340,7 +345,6 @@ inline std::string normalizeAddress(TWCoinType coin, const string& address) {
 } // namespace TW::internal
 
 std::string TW::normalizeAddress(TWCoinType coin, const string& address) {
-    ;
     if (!TW::validateAddress(coin, address)) {
         // invalid address, not normalizing
         return "";

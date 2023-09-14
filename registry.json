@@ -4384,5 +4384,35 @@
       "rpc": "",
       "documentation": "https://internetcomputer.org/docs"
     }
+  },
+  {
+    "id": "ckbtc",
+    "name": "Chainkey Bitcoin",
+    "coinId": 1000224,
+    "symbol": "ckbtc",
+    "decimals": 8,
+    "blockchain": "ChainkeyBitcoin",
+    "derivation": [
+      {
+        "path": "m/44'/223'/1'/0/0",
+        "xpub": "xpub",
+        "xpriv": "xpriv"
+      }
+    ],
+    "curve": "secp256k1",
+    "publicKeyType": "secp256k1Extended",
+    "explorer": {
+      "url": "https://dashboard.internetcomputer.org/bitcoin",
+      "txPath": "/transaction/",
+      "accountPath": "/account/",
+      "sampleTx": "77781",
+      "sampleAccount": "529ea51c22e8d66e8302eabd9297b100fdb369109822248bb86939a671fbc55b"
+    },
+    "info": {
+      "url": "https://internetcomputer.org",
+      "source": "https://github.com/dfinity/ic",
+      "rpc": "",
+      "documentation": "https://internetcomputer.org/docs"
+    }
   }
 ]

@@ -9,6 +9,7 @@ use crate::coin_context::CoinRegistryContext;
 use crate::coin_type::CoinType;
 use crate::error::{RegistryError, RegistryResult};
 use crate::registry::get_coin_item;
+use tw_ckbtc::entry::ChainkeyBitcoinEntry;
 use tw_coin_entry::coin_entry_ext::CoinEntryExt;
 use tw_ethereum::entry::EthereumEntry;
 use tw_evm::evm_entry::EvmEntryExt;
@@ -18,12 +19,14 @@ use tw_ronin::entry::RoninEntry;
 pub type CoinEntryExtStaticRef = &'static dyn CoinEntryExt;
 pub type EvmEntryExtStaticRef = &'static dyn EvmEntryExt;
 
+const CHAINKEY_BITCOIN: ChainkeyBitcoinEntry = ChainkeyBitcoinEntry;
 const ETHEREUM: EthereumEntry = EthereumEntry;
 const INTERNET_COMPUTER: InternetComputerEntry = InternetComputerEntry;
 const RONIN: RoninEntry = RoninEntry;
 
 pub fn blockchain_dispatcher(blockchain: BlockchainType) -> RegistryResult<CoinEntryExtStaticRef> {
     match blockchain {
+        BlockchainType::ChainkeyBitcoin => Ok(&CHAINKEY_BITCOIN),
         BlockchainType::Ethereum => Ok(&ETHEREUM),
         BlockchainType::InternetComputer => Ok(&INTERNET_COMPUTER),
         BlockchainType::Ronin => Ok(&RONIN),
@@ -43,6 +46,7 @@ pub fn coin_dispatcher(
 pub fn evm_dispatcher(coin: CoinType) -> RegistryResult<EvmEntryExtStaticRef> {
     let item = get_coin_item(coin)?;
     match item.blockchain {
+        BlockchainType::ChainkeyBitcoin => Err(RegistryError::Unsupported),
         BlockchainType::Ethereum => Ok(&ETHEREUM),
         BlockchainType::InternetComputer => Err(RegistryError::Unsupported),
         BlockchainType::Ronin => Ok(&RONIN),

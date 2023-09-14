@@ -4,14 +4,14 @@
 // terms governing use, modification, and redistribution, is contained in the
 // file LICENSE at the root of the source code distribution tree.
 
-#include <TrustWalletCore/TWCoinType.h>
 #include <TrustWalletCore/TWAnyAddress.h>
+#include <TrustWalletCore/TWCoinType.h>
 #include <TrustWalletCore/TWPublicKey.h>
 
-#include "Data.h"
+#include "AnyAddress.h"
 #include "Coin.h"
 #include "CoinEntry.h"
-#include "AnyAddress.h"
+#include "Data.h"
 
 bool TWAnyAddressEqual(struct TWAnyAddress* _Nonnull lhs, struct TWAnyAddress* _Nonnull rhs) {
     return *lhs->impl == *rhs->impl;
@@ -36,7 +36,7 @@ bool TWAnyAddressIsValidBech32(TWString* _Nonnull string, enum TWCoinType coin, 
 struct TWAnyAddress* _Nullable TWAnyAddressCreateWithString(TWString* _Nonnull string,
                                                             enum TWCoinType coin) {
     const auto& address = *reinterpret_cast<const std::string*>(string);
-    auto *impl = TW::AnyAddress::createAddress(address, coin);
+    auto* impl = TW::AnyAddress::createAddress(address, coin);
     if (impl == nullptr) {
         return nullptr;
     }
@@ -44,20 +44,19 @@ struct TWAnyAddress* _Nullable TWAnyAddressCreateWithString(TWString* _Nonnull s
 }
 
 struct TWAnyAddress* _Nullable TWAnyAddressCreateBech32(TWString* _Nonnull string,
-                                                            enum TWCoinType coin, TWString* _Nonnull hrp) {
+                                                        enum TWCoinType coin, TWString* _Nonnull hrp) {
     const auto& address = *reinterpret_cast<const std::string*>(string);
     const auto& hrpStr = *reinterpret_cast<const std::string*>(hrp);
-    auto *impl = TW::AnyAddress::createAddress(address, coin, hrpStr.c_str());
+    auto* impl = TW::AnyAddress::createAddress(address, coin, hrpStr.c_str());
     if (impl == nullptr) {
         return nullptr;
     }
     return new TWAnyAddress{impl};
 }
 
-
 struct TWAnyAddress* TWAnyAddressCreateSS58(TWString* _Nonnull string, enum TWCoinType coin, uint32_t ss58Prefix) {
     const auto& address = *reinterpret_cast<const std::string*>(string);
-    auto *impl = TW::AnyAddress::createAddress(address, coin, ss58Prefix);
+    auto* impl = TW::AnyAddress::createAddress(address, coin, ss58Prefix);
     if (impl == nullptr) {
         return nullptr;
     }

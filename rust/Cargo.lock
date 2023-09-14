@@ -1761,6 +1761,7 @@ dependencies = [
  "lazy_static",
  "serde",
  "serde_json",
+ "tw_ckbtc",
  "tw_coin_entry",
  "tw_ethereum",
  "tw_evm",

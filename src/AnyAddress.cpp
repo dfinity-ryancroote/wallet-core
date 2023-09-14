@@ -6,8 +6,8 @@
 
 #include "AnyAddress.h"
 
-#include <utility>
 #include "Coin.h"
+#include <utility>
 
 namespace TW {
 
