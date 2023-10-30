@@ -6,6 +6,7 @@
 
 use std::str::FromStr;
 
+use candid::{Decode, Encode};
 use tw_coin_entry::{
     coin_context::CoinContext,
     coin_entry::CoinEntry,
@@ -17,6 +18,7 @@ use tw_coin_entry::{
     signing_output_error,
 };
 
+use tw_encoding::hex;
 use tw_proto::{
     Common::Proto::SigningError as CommonError, InternetComputer::Proto,
     TxCompiler::Proto as CompilerProto,
@@ -73,6 +75,18 @@ impl CoinEntry for InternetComputerEntry {
         _coin: &dyn tw_coin_entry::coin_context::CoinContext,
         input: Self::SigningInput<'_>,
     ) -> Self::SigningOutput {
+        candid::Encode!(&()).unwrap();
+
+        #[derive(candid::CandidType, candid::Deserialize)]
+        struct St {
+            i: u128,
+        }
+
+        candid::Encode!(&St { i: 0 }).unwrap();
+
+        let bytes = hex::decode("4449444c016c01697d010000").unwrap();
+        candid::Decode!(&bytes, St).unwrap();
+
         Signer::<StandardInternetComputerContext>::sign_proto(input)
     }
 

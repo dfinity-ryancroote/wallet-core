@@ -6,6 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+candid = { version = "0.9", git = "https://github.com/dfinity/candid.git", branch = "beta" }
 quick-protobuf = "0.8.1"
 serde = { version = "1.0.136", features = ["derive"] }
 tw_coin_entry = { path = "../tw_coin_entry" }
